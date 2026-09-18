@@ -47,7 +47,51 @@ $("barcode").onchange=()=>{let q=$("barcode").value.trim().toLowerCase(),x=items
 $("inForm").onsubmit=async e=>{e.preventDefault();let x=items.find(i=>i.id===$("inItem").value),q=+$("inQty").value,p=+$("inPrice").value;if(!x)return;await addDoc(collection(db,"stockIn"),{itemNo:x.itemNo,itemName:x.itemName,quantity:q,unit:x.unitType||x.unit||"",unitType:x.unitType||null,pcsPerUnit:+(x.pcsPerUnit||1),buyingPrice:p,supplierName:$("inSupplier").value,invoiceNo:$("inInvoice").value,expiryDate:$("inExpiry").value?new Date($("inExpiry").value+"T00:00:00"):null,enteredBy:user.email,createdAt:serverTimestamp()});let nq=+(x.stockQty||0)+q;await updateDoc(doc(db,"items",x.id),{stockQty:nq,totalPcs:nq*+(x.pcsPerUnit||1),buyingPrice:p});e.target.reset();await refresh();alert("Stock IN saved.")};
 $("outForm").onsubmit=async e=>{e.preventDefault();let x=items.find(i=>i.id===$("outItem").value),q=+$("outQty").value;if(!x)return;if(q>+(x.stockQty||0)){alert("Insufficient stock");return}let pcs=+(x.pcsPerUnit||1);await addDoc(collection(db,"stockOut"),{itemNo:x.itemNo,itemName:x.itemName,quantity:q,unit:x.unitType||x.unit||"",unitType:x.unitType||null,pcsPerUnit:pcs,totalPcsOut:q*pcs,reason:$("reason").value,jobNo:$("jobNo").value,issuedTo:$("issuedTo").value,issuedBy:user.email,issuedDate:serverTimestamp(),createdAt:serverTimestamp()});let nq=+(x.stockQty||0)-q;await updateDoc(doc(db,"items",x.id),{stockQty:nq,totalPcs:nq*pcs});e.target.reset();await refresh();alert("Stock OUT saved.")};
 function renderHistory(){let q=$("hsearch").value.toLowerCase(),t=$("htype").value,d=history.filter(x=>(t==="All"||x.type===t)&&[x.itemNo,x.itemName,x.jobNo,x.invoiceNo].some(v=>String(v||"").toLowerCase().includes(q)));$("historyRows").innerHTML=d.map(x=>`<tr><td>${ms(x.createdAt)?new Date(ms(x.createdAt)).toLocaleString("en-GB"):"-"}</td><td>${x.type}</td><td>${esc(x.itemNo)}</td><td>${esc(x.itemName)}</td><td>${x.quantity||0}</td><td>${esc(x.jobNo||x.invoiceNo||"-")}</td><td>${esc(x.issuedBy||x.enteredBy||"-")}</td></tr>`).join("")}
-$("hsearch").oninput=renderHistory;$("htype").onchange=renderHistory;function renderSuppliers(){$("supplierRows").innerHTML=suppliers.map(s=>`<tr><td>${esc(s.companyName)}</td><td>${esc(s.contactPerson)}</td><td>${esc(s.phone)}</td><td>${esc(s.email)}</td><td>${esc(s.address)}</td></tr>`).join("")}
+$("hsearch").oninput=renderHistory;$("htype").onchange=renderHistory;
+function renderSuppliers(){
+
+  let q = ($("supplierSearch")?.value || "").toLowerCase();
+
+  let data = suppliers.filter(s =>
+    [
+      s.companyName,
+      s.contactPerson,
+      s.phone,
+      s.email,
+      s.address
+    ].some(v =>
+      String(v || "").toLowerCase().includes(q)
+    )
+  );
+
+  $("supplierRows").innerHTML = data.map(s => `
+    <tr>
+      <td>${esc(s.companyName)}</td>
+      <td>${esc(s.contactPerson)}</td>
+      <td>${esc(s.phone)}</td>
+      <td>${esc(s.email)}</td>
+      <td>${esc(s.address)}</td>
+
+      <td>
+        <span>
+          ${s.active !== false ? "Active" : "Inactive"}
+        </span>
+
+        <button onclick="window.editSupplier('${s.id}')">
+          Edit
+        </button>
+
+        <button onclick="window.toggleSupplier('${s.id}')">
+          ${s.active !== false ? "Deactivate" : "Activate"}
+        </button>
+      </td>
+    </tr>
+  `).join("") || `
+    <tr>
+      <td colspan="6">No suppliers found.</td>
+    </tr>
+  `;
+}
 $("addItem").onclick=()=>itemModal();$("addSupplier").onclick=()=>supplierModal();$("close").onclick=()=>$("modal").classList.add("hidden");
 function open(h){$("modalBody").innerHTML=h;$("modal").classList.remove("hidden")}
 function itemModal(x=null){
