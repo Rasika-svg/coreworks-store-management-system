@@ -288,5 +288,25 @@ function supplierModal(x=null){
     await refresh();
   };
 }
-window.edit=id=>itemModal(items.find(x=>x.id===id));window.barcode=id=>{let x=items.find(i=>i.id===id);open(`<h3>${esc(x.itemName)}</h3><svg id="bc"></svg><button onclick="print()">Print Barcode</button>`);JsBarcode("#bc",x.barcode||x.itemNo,{format:"CODE128",displayValue:true})};
+window.editSupplier = id => {
+  let x = suppliers.find(s => s.id === id);
+  if(x) supplierModal(x);
+};
+
+window.toggleSupplier = async id => {
+
+  let x = suppliers.find(s => s.id === id);
+
+  if(!x) return;
+
+  await updateDoc(
+    doc(db,"suppliers",id),
+    {
+      active: x.active === false,
+      updatedAt: serverTimestamp()
+    }
+  );
+
+  await refresh();
+};
 function supplierModal(){open(`<h3>Add Supplier</h3><form id="sf" class="itemgrid"><input id="sc" class="full" placeholder="Company Name" required><input id="sp" placeholder="Contact Person"><input id="st" placeholder="Phone"><input id="se" placeholder="Email"><input id="sa" class="full" placeholder="Address"><button class="full">Save</button></form>`);$("sf").onsubmit=async e=>{e.preventDefault();await addDoc(collection(db,"suppliers"),{companyName:$("sc").value,contactPerson:$("sp").value,phone:$("st").value,email:$("se").value,address:$("sa").value,active:true,createdAt:serverTimestamp()});$("modal").classList.add("hidden");await refresh()}}
