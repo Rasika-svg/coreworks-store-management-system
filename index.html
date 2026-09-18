@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coreworks Store Management</title><link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+<div id="loginView" class="login"><div class="card">
+<h1>Coreworks Store</h1><p>Coreworks Trading (Pvt) Ltd.</p>
+<form id="loginForm"><input id="email" type="email" placeholder="Email" required><input id="password" type="password" placeholder="Password" required><button>Sign In</button><div id="error"></div></form>
+</div></div>
+<div id="app" class="hidden">
+<aside><h2>Coreworks</h2><button data-page="dashboard">Dashboard</button><button data-page="items">Items</button><button data-page="stockin">Stock IN</button><button data-page="stockout">Stock OUT</button><button data-page="history">History</button><button data-page="suppliers">Suppliers</button><button id="logout">Sign Out</button></aside>
+<main><header><h2 id="title">Dashboard</h2><span id="user"></span><button id="refresh">Refresh</button></header>
+<section id="dashboard" class="page"><div class="stats"><div>Total Items<strong id="nItems">0</strong></div><div>Low Stock<strong id="nLow">0</strong></div><div>Expiring 7 Days<strong id="nExp">0</strong></div><div>Stock Value<strong id="nVal">Rs. 0</strong></div></div><div class="cols"><div class="card"><h3>Minimum Quantity Alerts</h3><div id="low"></div></div><div class="card"><h3>Expiring Within 7 Days</h3><div id="exp"></div></div></div></section>
+<section id="items" class="page hidden"><div class="toolbar"><input id="search" placeholder="Search Item Name, Item No, Description"><button id="addItem">+ Add Item</button></div><div class="card table"><table><thead><tr><th>Image</th><th>Item No</th><th>Name</th><th>Description</th><th>Unit</th><th>Stock</th><th>Min</th><th>Buying</th><th>Expiry</th><th></th></tr></thead><tbody id="itemRows"></tbody></table></div></section>
+<section id="stockin" class="page hidden"><div class="card form"><h3>Stock IN</h3><form id="inForm"><select id="inItem" required></select><input id="inQty" type="number" step=".001" placeholder="Quantity" required><input id="inPrice" type="number" step=".01" placeholder="Buying Price" required><input id="inSupplier" placeholder="Supplier"><input id="inInvoice" placeholder="Invoice No"><input id="inExpiry" type="date"><button>Save Stock IN</button></form></div></section>
+<section id="stockout" class="page hidden"><div class="card form"><h3>Stock OUT</h3><form id="outForm"><input id="barcode" placeholder="Scan / enter Item No or Barcode" required><select id="outItem" required></select><input id="outQty" type="number" step=".001" placeholder="Quantity" required><input id="reason" placeholder="Reason (Production / Sample / Damage)" required><input id="jobNo" placeholder="Job No"><input id="issuedTo" placeholder="Issued To"><button>Save Stock OUT</button></form></div></section>
+<section id="history" class="page hidden"><div class="toolbar"><input id="hsearch" placeholder="Search Item / Job / Invoice"><select id="htype"><option>All</option><option>IN</option><option>OUT</option></select></div><div class="card table"><table><thead><tr><th>Date</th><th>Type</th><th>Item No</th><th>Item</th><th>Qty</th><th>Reference</th><th>By</th></tr></thead><tbody id="historyRows"></tbody></table></div></section>
+<section id="suppliers" class="page hidden"><div class="toolbar"><button id="addSupplier">+ Add Supplier</button></div><div class="card table"><table><thead><tr><th>Company</th><th>Contact</th><th>Phone</th><th>Email</th><th>Address</th></tr></thead><tbody id="supplierRows"></tbody></table></div></section>
+</main></div>
+<div id="modal" class="modal hidden"><div class="modalbox"><button id="close">×</button><div id="modalBody"></div></div></div>
+<script type="module" src="app.js"></script>
+</body></html>
