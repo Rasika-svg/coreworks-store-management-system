@@ -22,25 +22,26 @@ $("search").oninput=renderItems;
 function selects(){
 
   // Items
-  let o=items
-    .map(x=>`<option value="${x.id}">
+  let o = items
+    .map(x => `<option value="${x.id}">
       ${esc(x.itemNo)} — ${esc(x.itemName)}
     </option>`)
     .join("");
 
-  $("inItem").innerHTML=o;
-  $("outItem").innerHTML=o;
+  $("inItem").innerHTML = o;
+  $("outItem").innerHTML = o;
+
 
   // Suppliers
-  let s=`<option value="">Select Supplier</option>`+
-    suppliers
-      .filter(x=>x.active!==false)
-      .map(x=>`<option value="${esc(x.companyName)}">
-        ${esc(x.companyName)}
-      </option>`)
-      .join("");
+  let s = `<option value="">Select Supplier</option>`;
 
-  $("inSupplier").innerHTML=s;
+  suppliers.forEach(x => {
+    s += `<option value="${esc(x.companyName)}">
+      ${esc(x.companyName)}
+    </option>`;
+  });
+
+  $("inSupplier").innerHTML = s;
 }
 $("barcode").onchange=()=>{let q=$("barcode").value.trim().toLowerCase(),x=items.find(i=>String(i.itemNo||"").toLowerCase()===q||String(i.barcode||"").toLowerCase()===q);if(x)$("outItem").value=x.id};
 $("inForm").onsubmit=async e=>{e.preventDefault();let x=items.find(i=>i.id===$("inItem").value),q=+$("inQty").value,p=+$("inPrice").value;if(!x)return;await addDoc(collection(db,"stockIn"),{itemNo:x.itemNo,itemName:x.itemName,quantity:q,unit:x.unitType||x.unit||"",unitType:x.unitType||null,pcsPerUnit:+(x.pcsPerUnit||1),buyingPrice:p,supplierName:$("inSupplier").value,invoiceNo:$("inInvoice").value,expiryDate:$("inExpiry").value?new Date($("inExpiry").value+"T00:00:00"):null,enteredBy:user.email,createdAt:serverTimestamp()});let nq=+(x.stockQty||0)+q;await updateDoc(doc(db,"items",x.id),{stockQty:nq,totalPcs:nq*+(x.pcsPerUnit||1),buyingPrice:p});e.target.reset();await refresh();alert("Stock IN saved.")};
