@@ -2,7 +2,7 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/12.9.0/firebase-app
 import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut}from"https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import{getFirestore,collection,getDocs,doc,setDoc,addDoc,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 const firebaseConfig = {
-  apiKey: "AIzaSyDXHA-L-TqWGi jVXD0ok5nGw0YFrgzM5yA",
+  apiKey: "AIzaSyDXHA-l-TqWGijVXDoOk5nGw0YFrgzM5yA",
   authDomain: "coreworks-store.firebaseapp.com",
   projectId: "coreworks-store",
   storageBucket: "coreworks-store.firebasestorage.app",
