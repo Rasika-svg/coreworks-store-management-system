@@ -1,7 +1,14 @@
 import{initializeApp}from"https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut}from"https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import{getFirestore,collection,getDocs,doc,setDoc,addDoc,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-const firebaseConfig={apiKey:"AIzaSyDXHA-l-TqWGijVXDoOk5nGw0YFrgzM5yA".replaceAll(" ",""),authDomain:"coreworks-store.firebaseapp.com",projectId:"coreworks-store",storageBucket:"coreworks-store.firebasestorage.app",messagingSenderId:"661100888687",appId:"1:661100888687:web:b94d01928ef5e82c13039a"};
+const firebaseConfig = {
+  apiKey: "AIzaSyDXHA-L-TqWGi jVXD0ok5nGw0YFrgzM5yA",
+  authDomain: "coreworks-store.firebaseapp.com",
+  projectId: "coreworks-store",
+  storageBucket: "coreworks-store.firebasestorage.app",
+  messagingSenderId: "661100888687",
+  appId: "1:661100888687:web:b94d01928ef5e82c13039a"
+};
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);let user,items=[],suppliers=[],history=[];
 const $=x=>document.getElementById(x), esc=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])),ms=x=>x?.toMillis?x.toMillis():x?.seconds?x.seconds*1000:new Date(x||0).getTime(),money=x=>"Rs. "+Number(x||0).toLocaleString("en-LK",{minimumFractionDigits:2}),days=x=>Math.ceil((ms(x)-Date.now())/86400000);
 onAuthStateChanged(auth,async u=>{user=u;if(u){$("loginView").classList.add("hidden");$("app").classList.remove("hidden");$("user").textContent=u.email;await refresh()}else{$("app").classList.add("hidden");$("loginView").classList.remove("hidden")}});
