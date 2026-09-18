@@ -20,7 +20,13 @@
 </select><input id="inInvoice" placeholder="Invoice No"><input id="inExpiry" type="date"><button>Save Stock IN</button></form></div></section>
 <section id="stockout" class="page hidden"><div class="card form"><h3>Stock OUT</h3><form id="outForm"><input id="barcode" placeholder="Scan / enter Item No or Barcode" required><select id="outItem" required></select><input id="outQty" type="number" step=".001" placeholder="Quantity" required><input id="reason" placeholder="Reason (Production / Sample / Damage)" required><input id="jobNo" placeholder="Job No"><input id="issuedTo" placeholder="Issued To"><button>Save Stock OUT</button></form></div></section>
 <section id="history" class="page hidden"><div class="toolbar"><input id="hsearch" placeholder="Search Item / Job / Invoice"><select id="htype"><option>All</option><option>IN</option><option>OUT</option></select></div><div class="card table"><table><thead><tr><th>Date</th><th>Type</th><th>Item No</th><th>Item</th><th>Qty</th><th>Reference</th><th>By</th></tr></thead><tbody id="historyRows"></tbody></table></div></section>
-<section id="suppliers" class="page hidden"><div class="toolbar"><button id="addSupplier">+ Add Supplier</button></div><div class="card table"><table><thead><tr><th>Company</th><th>Contact</th><th>Phone</th><th>Email</th><th>Address</th></tr></thead><tbody id="supplierRows"></tbody></table></div></section>
+<section id="suppliers" class="page hidden"><div class="toolbar"><button id="addSupplier">+ Add Supplier</button>
+<input
+  id="supplierSearch"
+  placeholder="Search Supplier, Contact, Phone, Email"
+  style="margin:15px 0;width:400px;"
+>
+</div><div class="card table"><table><thead><tr><th>Company</th><th>Contact</th><th>Phone</th><th>Email</th><th>Address</th></tr></thead><tbody id="supplierRows"></tbody></table></div></section>
 </main></div>
 <div id="modal" class="modal hidden"><div class="modalbox"><button id="close">×</button><div id="modalBody"></div></div></div>
 <script type="module" src="app.js"></script>
