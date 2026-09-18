@@ -19,7 +19,29 @@ async function refresh(){try{items=await all("items");suppliers=await all("suppl
 function dashboard(){let low=items.filter(x=>Number(x.stockQty||0)<=Number(x.minimumQty||0)),exp=items.filter(x=>x.expiryDate&&days(x.expiryDate)>=0&&days(x.expiryDate)<=7),val=items.reduce((s,x)=>s+Number(x.stockQty||0)*Number(x.buyingPrice||0),0);$("nItems").textContent=items.length;$("nLow").textContent=low.length;$("nExp").textContent=exp.length;$("nVal").textContent=money(val);$("low").innerHTML=low.map(x=>`<p>${esc(x.itemNo)} — ${esc(x.itemName)} | <b>${x.stockQty} / ${x.minimumQty}</b></p>`).join("")||"<p>No alerts.</p>";$("exp").innerHTML=exp.map(x=>`<p>${esc(x.itemNo)} — ${esc(x.itemName)} | <b>${days(x.expiryDate)} day(s)</b></p>`).join("")||"<p>No expiring items.</p>"}
 function renderItems(){let q=$("search").value.toLowerCase(),d=items.filter(x=>[x.itemNo,x.itemName,x.description].some(v=>String(v||"").toLowerCase().includes(q)));$("itemRows").innerHTML=d.map(x=>`<tr><td>${x.imageUrl&&x.imageUrl!=="-"?`<img class="thumb" src="${esc(x.imageUrl)}">`:""}</td><td>${esc(x.itemNo)}</td><td>${esc(x.itemName)}</td><td>${esc(x.description)}</td><td>${esc(x.unitType||x.unit||"")}${x.pcsPerUnit?` (${x.pcsPerUnit} pcs/u)`:""}</td><td>${x.stockQty||0}</td><td>${x.minimumQty||0}</td><td>${money(x.buyingPrice)}</td><td>${x.expiryDate?new Date(ms(x.expiryDate)).toLocaleDateString("en-GB"):"-"}</td><td><button onclick="window.edit('${x.id}')">Edit</button> <button onclick="window.barcode('${x.id}')">Barcode</button></td></tr>`).join("")||"<tr><td colspan=10>No items found.</td></tr>"}
 $("search").oninput=renderItems;
-function selects(){let o=items.map(x=>`<option value="${x.id}">${esc(x.itemNo)} — ${esc(x.itemName)}</option>`).join("");$("inItem").innerHTML=o;$("outItem").innerHTML=o}
+function selects(){
+
+  // Items
+  let o=items
+    .map(x=>`<option value="${x.id}">
+      ${esc(x.itemNo)} — ${esc(x.itemName)}
+    </option>`)
+    .join("");
+
+  $("inItem").innerHTML=o;
+  $("outItem").innerHTML=o;
+
+  // Suppliers
+  let s=`<option value="">Select Supplier</option>`+
+    suppliers
+      .filter(x=>x.active!==false)
+      .map(x=>`<option value="${esc(x.companyName)}">
+        ${esc(x.companyName)}
+      </option>`)
+      .join("");
+
+  $("inSupplier").innerHTML=s;
+}
 $("barcode").onchange=()=>{let q=$("barcode").value.trim().toLowerCase(),x=items.find(i=>String(i.itemNo||"").toLowerCase()===q||String(i.barcode||"").toLowerCase()===q);if(x)$("outItem").value=x.id};
 $("inForm").onsubmit=async e=>{e.preventDefault();let x=items.find(i=>i.id===$("inItem").value),q=+$("inQty").value,p=+$("inPrice").value;if(!x)return;await addDoc(collection(db,"stockIn"),{itemNo:x.itemNo,itemName:x.itemName,quantity:q,unit:x.unitType||x.unit||"",unitType:x.unitType||null,pcsPerUnit:+(x.pcsPerUnit||1),buyingPrice:p,supplierName:$("inSupplier").value,invoiceNo:$("inInvoice").value,expiryDate:$("inExpiry").value?new Date($("inExpiry").value+"T00:00:00"):null,enteredBy:user.email,createdAt:serverTimestamp()});let nq=+(x.stockQty||0)+q;await updateDoc(doc(db,"items",x.id),{stockQty:nq,totalPcs:nq*+(x.pcsPerUnit||1),buyingPrice:p});e.target.reset();await refresh();alert("Stock IN saved.")};
 $("outForm").onsubmit=async e=>{e.preventDefault();let x=items.find(i=>i.id===$("outItem").value),q=+$("outQty").value;if(!x)return;if(q>+(x.stockQty||0)){alert("Insufficient stock");return}let pcs=+(x.pcsPerUnit||1);await addDoc(collection(db,"stockOut"),{itemNo:x.itemNo,itemName:x.itemName,quantity:q,unit:x.unitType||x.unit||"",unitType:x.unitType||null,pcsPerUnit:pcs,totalPcsOut:q*pcs,reason:$("reason").value,jobNo:$("jobNo").value,issuedTo:$("issuedTo").value,issuedBy:user.email,issuedDate:serverTimestamp(),createdAt:serverTimestamp()});let nq=+(x.stockQty||0)-q;await updateDoc(doc(db,"items",x.id),{stockQty:nq,totalPcs:nq*pcs});e.target.reset();await refresh();alert("Stock OUT saved.")};
