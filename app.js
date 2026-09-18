@@ -187,7 +187,7 @@ function supplierModal(x=null){
     await refresh();
   };
 }
-
+function itemModal(x=null){
   $("iUnit").value = x?.unitType || "PCS";
 
   // Item No type කරනකොට existing Item No suggestions
