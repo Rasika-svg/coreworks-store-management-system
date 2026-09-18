@@ -94,159 +94,99 @@ function renderSuppliers(){
 }
 $("addItem").onclick=()=>itemModal();$("addSupplier").onclick=()=>supplierModal();$("close").onclick=()=>$("modal").classList.add("hidden");
 function open(h){$("modalBody").innerHTML=h;$("modal").classList.remove("hidden")}
-function itemModal(x=null){
-  let itemSuggestions = items
-    .map(i => `<option value="${esc(i.itemNo)}">${esc(i.itemName)}</option>`)
-    .join("");
+function supplierModal(x=null){
 
   open(`
-    <h3>${x ? "Edit" : "Add"} Item</h3>
+    <h3>${x ? "Edit Supplier" : "Add Supplier"}</h3>
 
-    <form id="itemForm" class="itemgrid">
+    <form id="sf" class="itemgrid">
 
-      <div>
-        <label>Item No</label>
-        <input
-          id="iNo"
-          list="itemNoList"
-          placeholder="Enter Item No"
-          required
-          autocomplete="off"
-          value="${esc(x?.itemNo)}"
-        >
-        <datalist id="itemNoList">
-          ${itemSuggestions}
-        </datalist>
-      </div>
+      <input
+        id="sc"
+        class="full"
+        placeholder="Company Name"
+        required
+        value="${esc(x?.companyName)}"
+      >
 
-      <div>
-        <label>Item Name</label>
-        <input
-          id="iName"
-          placeholder="Enter Item Name"
-          required
-          value="${esc(x?.itemName)}"
-        >
-      </div>
+      <input
+        id="sp"
+        placeholder="Contact Person"
+        value="${esc(x?.contactPerson)}"
+      >
 
-      <div class="full">
-        <label>Description</label>
-        <textarea
-          id="iDesc"
-          placeholder="Enter Item Description"
-        >${esc(x?.description)}</textarea>
-      </div>
+      <input
+        id="st"
+        placeholder="Phone"
+        value="${esc(x?.phone)}"
+      >
 
-      <div>
-        <label>Unit</label>
-        <select id="iUnit">
-          <option>PCS</option>
-          <option>ROLL</option>
-          <option>KG</option>
-          <option>L</option>
-          <option>M</option>
-          <option>BOX</option>
-          <option>SET</option>
-        </select>
-      </div>
+      <input
+        id="se"
+        type="email"
+        placeholder="Email"
+        value="${esc(x?.email)}"
+      >
 
-      <div>
-        <label>PCS per Unit</label>
-        <input
-          id="iPcs"
-          type="number"
-          step=".001"
-          placeholder="Example: 1000"
-          value="${x?.pcsPerUnit || 1}"
-        >
-      </div>
+      <input
+        id="sa"
+        class="full"
+        placeholder="Address"
+        value="${esc(x?.address)}"
+      >
 
-      <div>
-        <label>Opening Stock</label>
-        <input
-          id="iStock"
-          type="number"
-          step=".001"
-          placeholder="Example: 10"
-          value="${x?.stockQty || 0}"
-        >
-      </div>
+      <select id="sactive" class="full">
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
 
-      <div>
-        <label>Minimum Stock Alert</label>
-        <input
-          id="iMin"
-          type="number"
-          step=".001"
-          placeholder="Example: 2"
-          value="${x?.minimumQty || 0}"
-          required
-        >
-      </div>
-
-      <div>
-        <label>Buying Price</label>
-        <input
-          id="iPrice"
-          type="number"
-          step=".01"
-          placeholder="Example: 2498"
-          value="${x?.buyingPrice || 0}"
-          required
-        >
-      </div>
-
-      <div>
-        <label>Expiry Date</label>
-        <input
-          id="iExp"
-          type="date"
-          value="${x?.expiryDate
-            ? new Date(ms(x.expiryDate)).toISOString().slice(0,10)
-            : ""}"
-        >
-      </div>
-
-      <div>
-        <label>Supplier</label>
-        <input
-          id="iSupplier"
-          placeholder="Enter Supplier"
-          value="${esc(x?.supplierName)}"
-        >
-      </div>
-
-      <div>
-        <label>Location / Rack</label>
-        <input
-          id="iLoc"
-          placeholder="Example: Rack A-01"
-          value="${esc(x?.location)}"
-        >
-      </div>
-
-      <div>
-        <label>Barcode</label>
-        <input
-          id="iBar"
-          placeholder="Enter Barcode"
-          value="${esc(x?.barcode)}"
-        >
-      </div>
-
-      <div class="full">
-        <label>Image URL</label>
-        <input
-          id="iImg"
-          placeholder="Image URL"
-          value="${esc(x?.imageUrl)}"
-        >
-      </div>
-
-      <button class="full">${x ? "Update Item" : "Save Item"}</button>
+      <button class="full">
+        ${x ? "Update Supplier" : "Save Supplier"}
+      </button>
 
     </form>
   `);
+
+  $("sactive").value =
+    x?.active === false ? "false" : "true";
+
+
+  $("sf").onsubmit = async e => {
+
+    e.preventDefault();
+
+    let d = {
+      companyName: $("sc").value.trim(),
+      contactPerson: $("sp").value.trim(),
+      phone: $("st").value.trim(),
+      email: $("se").value.trim(),
+      address: $("sa").value.trim(),
+      active: $("sactive").value === "true",
+      updatedAt: serverTimestamp()
+    };
+
+    if(x){
+
+      await updateDoc(
+        doc(db,"suppliers",x.id),
+        d
+      );
+
+    }else{
+
+      d.createdAt = serverTimestamp();
+
+      await addDoc(
+        collection(db,"suppliers"),
+        d
+      );
+    }
+
+    $("modal").classList.add("hidden");
+
+    await refresh();
+  };
+}
 
   $("iUnit").value = x?.unitType || "PCS";
 
