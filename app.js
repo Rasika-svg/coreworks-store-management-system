@@ -27,6 +27,259 @@ function renderHistory(){let q=$("hsearch").value.toLowerCase(),t=$("htype").val
 $("hsearch").oninput=renderHistory;$("htype").onchange=renderHistory;function renderSuppliers(){$("supplierRows").innerHTML=suppliers.map(s=>`<tr><td>${esc(s.companyName)}</td><td>${esc(s.contactPerson)}</td><td>${esc(s.phone)}</td><td>${esc(s.email)}</td><td>${esc(s.address)}</td></tr>`).join("")}
 $("addItem").onclick=()=>itemModal();$("addSupplier").onclick=()=>supplierModal();$("close").onclick=()=>$("modal").classList.add("hidden");
 function open(h){$("modalBody").innerHTML=h;$("modal").classList.remove("hidden")}
-function itemModal(x=null){open(`<h3>${x?"Edit":"Add"} Item</h3><form id="itemForm" class="itemgrid"><input id="iNo" placeholder="Item No (manual)" required value="${esc(x?.itemNo)}"><input id="iName" placeholder="Item Name" required value="${esc(x?.itemName)}"><textarea id="iDesc" class="full" placeholder="Description">${esc(x?.description)}</textarea><select id="iUnit"><option>PCS</option><option>ROLL</option><option>KG</option><option>L</option><option>M</option><option>BOX</option><option>SET</option></select><input id="iPcs" type="number" step=".001" placeholder="PCS per Unit" value="${x?.pcsPerUnit||1}"><input id="iStock" type="number" step=".001" placeholder="Opening Stock" value="${x?.stockQty||0}"><input id="iMin" type="number" step=".001" placeholder="Minimum Qty" value="${x?.minimumQty||0}" required><input id="iPrice" type="number" step=".01" placeholder="Buying Price" value="${x?.buyingPrice||0}" required><input id="iExp" type="date" value="${x?.expiryDate?new Date(ms(x.expiryDate)).toISOString().slice(0,10):""}"><input id="iSupplier" placeholder="Supplier" value="${esc(x?.supplierName)}"><input id="iLoc" placeholder="Location / Rack" value="${esc(x?.location)}"><input id="iBar" placeholder="Barcode" value="${esc(x?.barcode)}"><input id="iImg" class="full" placeholder="Image URL (Cloudinary can be added later)" value="${esc(x?.imageUrl)}"><button class="full">Save Item</button></form>`);$("iUnit").value=x?.unitType||"PCS";$("itemForm").onsubmit=async e=>{e.preventDefault();let d={itemNo:$("iNo").value.trim(),itemName:$("iName").value.trim(),description:$("iDesc").value.trim(),unitType:$("iUnit").value,pcsPerUnit:+$("iPcs").value||1,stockQty:+$("iStock").value||0,minimumQty:+$("iMin").value||0,buyingPrice:+$("iPrice").value||0,expiryDate:$("iExp").value?new Date($("iExp").value+"T00:00:00"):null,supplierName:$("iSupplier").value.trim(),location:$("iLoc").value.trim(),barcode:$("iBar").value.trim()||$("iNo").value.trim(),imageUrl:$("iImg").value.trim()||"-",active:x?.active!==false,totalPcs:(+$("iStock").value||0)*(+$("iPcs").value||1),updatedAt:serverTimestamp()};if(x)await updateDoc(doc(db,"items",x.id),d);else{d.createdAt=serverTimestamp();await setDoc(doc(db,"items",d.itemNo),d)}$("modal").classList.add("hidden");await refresh()}}
+function itemModal(x=null){
+  let itemSuggestions = items
+    .map(i => `<option value="${esc(i.itemNo)}">${esc(i.itemName)}</option>`)
+    .join("");
+
+  open(`
+    <h3>${x ? "Edit" : "Add"} Item</h3>
+
+    <form id="itemForm" class="itemgrid">
+
+      <div>
+        <label>Item No</label>
+        <input
+          id="iNo"
+          list="itemNoList"
+          placeholder="Enter Item No"
+          required
+          autocomplete="off"
+          value="${esc(x?.itemNo)}"
+        >
+        <datalist id="itemNoList">
+          ${itemSuggestions}
+        </datalist>
+      </div>
+
+      <div>
+        <label>Item Name</label>
+        <input
+          id="iName"
+          placeholder="Enter Item Name"
+          required
+          value="${esc(x?.itemName)}"
+        >
+      </div>
+
+      <div class="full">
+        <label>Description</label>
+        <textarea
+          id="iDesc"
+          placeholder="Enter Item Description"
+        >${esc(x?.description)}</textarea>
+      </div>
+
+      <div>
+        <label>Unit</label>
+        <select id="iUnit">
+          <option>PCS</option>
+          <option>ROLL</option>
+          <option>KG</option>
+          <option>L</option>
+          <option>M</option>
+          <option>BOX</option>
+          <option>SET</option>
+        </select>
+      </div>
+
+      <div>
+        <label>PCS per Unit</label>
+        <input
+          id="iPcs"
+          type="number"
+          step=".001"
+          placeholder="Example: 1000"
+          value="${x?.pcsPerUnit || 1}"
+        >
+      </div>
+
+      <div>
+        <label>Opening Stock</label>
+        <input
+          id="iStock"
+          type="number"
+          step=".001"
+          placeholder="Example: 10"
+          value="${x?.stockQty || 0}"
+        >
+      </div>
+
+      <div>
+        <label>Minimum Stock Alert</label>
+        <input
+          id="iMin"
+          type="number"
+          step=".001"
+          placeholder="Example: 2"
+          value="${x?.minimumQty || 0}"
+          required
+        >
+      </div>
+
+      <div>
+        <label>Buying Price</label>
+        <input
+          id="iPrice"
+          type="number"
+          step=".01"
+          placeholder="Example: 2498"
+          value="${x?.buyingPrice || 0}"
+          required
+        >
+      </div>
+
+      <div>
+        <label>Expiry Date</label>
+        <input
+          id="iExp"
+          type="date"
+          value="${x?.expiryDate
+            ? new Date(ms(x.expiryDate)).toISOString().slice(0,10)
+            : ""}"
+        >
+      </div>
+
+      <div>
+        <label>Supplier</label>
+        <input
+          id="iSupplier"
+          placeholder="Enter Supplier"
+          value="${esc(x?.supplierName)}"
+        >
+      </div>
+
+      <div>
+        <label>Location / Rack</label>
+        <input
+          id="iLoc"
+          placeholder="Example: Rack A-01"
+          value="${esc(x?.location)}"
+        >
+      </div>
+
+      <div>
+        <label>Barcode</label>
+        <input
+          id="iBar"
+          placeholder="Enter Barcode"
+          value="${esc(x?.barcode)}"
+        >
+      </div>
+
+      <div class="full">
+        <label>Image URL</label>
+        <input
+          id="iImg"
+          placeholder="Image URL"
+          value="${esc(x?.imageUrl)}"
+        >
+      </div>
+
+      <button class="full">${x ? "Update Item" : "Save Item"}</button>
+
+    </form>
+  `);
+
+  $("iUnit").value = x?.unitType || "PCS";
+
+  // Item No type කරනකොට existing Item No suggestions
+  $("iNo").addEventListener("input", () => {
+    let value = $("iNo").value.trim().toLowerCase();
+
+    let found = items.find(i =>
+      String(i.itemNo || "").toLowerCase() === value
+    );
+
+    // Existing Item No එකක් select/type කළොත් details auto-fill
+    if(found && !x){
+
+      $("iName").value = found.itemName || "";
+      $("iDesc").value = found.description || "";
+      $("iUnit").value = found.unitType || "PCS";
+      $("iPcs").value = found.pcsPerUnit || 1;
+      $("iMin").value = found.minimumQty || 0;
+      $("iPrice").value = found.buyingPrice || 0;
+      $("iSupplier").value = found.supplierName || "";
+      $("iLoc").value = found.location || "";
+      $("iBar").value = found.barcode || found.itemNo || "";
+      $("iImg").value = found.imageUrl || "-";
+    }
+  });
+
+  $("itemForm").onsubmit = async e => {
+    e.preventDefault();
+
+    let itemNo = $("iNo").value.trim();
+
+    // Duplicate Item No check
+    let duplicate = items.find(i =>
+      String(i.itemNo || "").toLowerCase() === itemNo.toLowerCase()
+      && i.id !== x?.id
+    );
+
+    if(duplicate){
+      alert(
+        "This Item No already exists.\n\n" +
+        duplicate.itemNo + " — " +
+        duplicate.itemName
+      );
+      $("iNo").focus();
+      return;
+    }
+
+    let d = {
+      itemNo: itemNo,
+      itemName: $("iName").value.trim(),
+      description: $("iDesc").value.trim(),
+      unitType: $("iUnit").value,
+      pcsPerUnit: +$("iPcs").value || 1,
+      stockQty: +$("iStock").value || 0,
+      minimumQty: +$("iMin").value || 0,
+      buyingPrice: +$("iPrice").value || 0,
+
+      expiryDate: $("iExp").value
+        ? new Date($("iExp").value + "T00:00:00")
+        : null,
+
+      supplierName: $("iSupplier").value.trim(),
+      location: $("iLoc").value.trim(),
+
+      barcode:
+        $("iBar").value.trim() ||
+        itemNo,
+
+      imageUrl:
+        $("iImg").value.trim() ||
+        "-",
+
+      active: x?.active !== false,
+
+      totalPcs:
+        (+$("iStock").value || 0) *
+        (+$("iPcs").value || 1),
+
+      updatedAt: serverTimestamp()
+    };
+
+    if(x){
+      await updateDoc(
+        doc(db,"items",x.id),
+        d
+      );
+    }else{
+      d.createdAt = serverTimestamp();
+
+      await setDoc(
+        doc(db,"items",itemNo),
+        d
+      );
+    }
+
+    $("modal").classList.add("hidden");
+
+    await refresh();
+  };
+}
 window.edit=id=>itemModal(items.find(x=>x.id===id));window.barcode=id=>{let x=items.find(i=>i.id===id);open(`<h3>${esc(x.itemName)}</h3><svg id="bc"></svg><button onclick="print()">Print Barcode</button>`);JsBarcode("#bc",x.barcode||x.itemNo,{format:"CODE128",displayValue:true})};
 function supplierModal(){open(`<h3>Add Supplier</h3><form id="sf" class="itemgrid"><input id="sc" class="full" placeholder="Company Name" required><input id="sp" placeholder="Contact Person"><input id="st" placeholder="Phone"><input id="se" placeholder="Email"><input id="sa" class="full" placeholder="Address"><button class="full">Save</button></form>`);$("sf").onsubmit=async e=>{e.preventDefault();await addDoc(collection(db,"suppliers"),{companyName:$("sc").value,contactPerson:$("sp").value,phone:$("st").value,email:$("se").value,address:$("sa").value,active:true,createdAt:serverTimestamp()});$("modal").classList.add("hidden");await refresh()}}
