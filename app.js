@@ -213,6 +213,27 @@ function itemModal(x=null){
       $("iImg").value = found.imageUrl || "-";
     }
   });
+  window.edit = id => {
+  let x = items.find(i => i.id === id);
+  if (x) itemModal(x);
+};
+
+window.barcode = id => {
+  let x = items.find(i => i.id === id);
+
+  if (!x) return;
+
+  open(`
+    <h3>${esc(x.itemName)}</h3>
+    <svg id="bc"></svg>
+    <button onclick="print()">Print Barcode</button>
+  `);
+
+  JsBarcode("#bc", x.barcode || x.itemNo, {
+    format: "CODE128",
+    displayValue: true
+  });
+};
 
   $("itemForm").onsubmit = async e => {
     e.preventDefault();
