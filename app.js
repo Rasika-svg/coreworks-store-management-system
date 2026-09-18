@@ -309,4 +309,4 @@ window.toggleSupplier = async id => {
 
   await refresh();
 };
-function supplierModal(){open(`<h3>Add Supplier</h3><form id="sf" class="itemgrid"><input id="sc" class="full" placeholder="Company Name" required><input id="sp" placeholder="Contact Person"><input id="st" placeholder="Phone"><input id="se" placeholder="Email"><input id="sa" class="full" placeholder="Address"><button class="full">Save</button></form>`);$("sf").onsubmit=async e=>{e.preventDefault();await addDoc(collection(db,"suppliers"),{companyName:$("sc").value,contactPerson:$("sp").value,phone:$("st").value,email:$("se").value,address:$("sa").value,active:true,createdAt:serverTimestamp()});$("modal").classList.add("hidden");await refresh()}}
+
