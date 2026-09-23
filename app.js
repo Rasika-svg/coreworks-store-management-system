@@ -271,11 +271,13 @@ function dashboard() {
     const expiring =
         items.filter(item => {
 
-            if (!item.expiryDate)
+            const effectiveExpiry = getEffectiveExpiry(item);
+
+            if (!effectiveExpiry)
                 return false;
 
             const days =
-                daysUntil(item.expiryDate);
+                daysUntil(effectiveExpiry);
 
             return (
                 days !== null &&
@@ -340,9 +342,9 @@ function dashboard() {
                     |
                     <b>
                         ${
-                            daysUntil(item.expiryDate) < 0
-                                ? `Expired ${Math.abs(daysUntil(item.expiryDate))} day(s) ago`
-                                : `${daysUntil(item.expiryDate)} day(s)`
+                            daysUntil(getEffectiveExpiry(item)) < 0
+                                ? `Expired ${Math.abs(daysUntil(getEffectiveExpiry(item)))} day(s) ago`
+                                : `${daysUntil(getEffectiveExpiry(item))} day(s)`
                         }
                     </b>
                 </p>
@@ -351,6 +353,29 @@ function dashboard() {
             .join("")
         ||
         "<p>No expiring items.</p>";
+}
+
+
+
+function getEffectiveExpiry(item) {
+    const itemBatches = history.filter(
+        record => record.type === "IN" && record.itemNo === item.itemNo
+    );
+
+    const activeExpiries = itemBatches
+        .filter(record =>
+            Number(record.remainingQty ?? record.quantity ?? 0) > 0 &&
+            record.expiryDate
+        )
+        .map(record => record.expiryDate)
+        .sort((a, b) => ms(a) - ms(b));
+
+    if (activeExpiries.length) return activeExpiries[0];
+
+    // Old items created before batch tracking.
+    if (itemBatches.length === 0) return item.expiryDate || null;
+
+    return null;
 }
 
 
@@ -371,10 +396,12 @@ function getItemStatus(item) {
     */
 
 
-    if (item.expiryDate) {
+    const effectiveExpiry = getEffectiveExpiry(item);
+
+    if (effectiveExpiry) {
 
         const remainingDays =
-            daysUntil(item.expiryDate);
+            daysUntil(effectiveExpiry);
 
         if (
             remainingDays !== null &&
@@ -680,11 +707,13 @@ function renderItems() {
                 const status =
                     getItemStatus(item);
 
+                const effectiveExpiry = getEffectiveExpiry(item);
+
                 const expiry =
-                    item.expiryDate
+                    effectiveExpiry
                         ?
                         new Date(
-                            ms(item.expiryDate)
+                            ms(effectiveExpiry)
                         )
                             .toLocaleDateString(
                                 "en-GB"
@@ -2324,9 +2353,9 @@ window.moreItem =
                                         <td>
                                             ${
                                                 record.expiryDate &&
-                                                daysUntil(record.expiryDate) < 0 &&
+                                                daysUntil(record.expiryDate) <= 30 &&
                                                 Number(record.remainingQty ?? record.quantity ?? 0) > 0
-                                                    ? `<button onclick="window.removeExpiredBatchStock('${record.id}', '${item.id}')">Remove Expired Stock</button>`
+                                                    ? `<button onclick="window.removeExpiredBatchStock('${record.id}', '${item.id}')">Remove Expiry Stock</button>`
                                                     : Number(record.remainingQty ?? record.quantity ?? 0) <= 0 &&
                                                       record.batchStatus === "EXPIRED_REMOVED"
                                                         ? `<b>Removed</b>`
@@ -2336,7 +2365,29 @@ window.moreItem =
                                     </tr>
                                 `).join("")
                             ||
-                            `<tr><td colspan="9">No invoice / receiving batches recorded.</td></tr>`
+                            (
+                                Number(item.stockQty || 0) > 0
+                                    ? `
+                                        <tr>
+                                            <td>-</td>
+                                            <td>LEGACY-STOCK</td>
+                                            <td>${esc(item.supplierName || "-")}</td>
+                                            <td>${Number(item.stockQty || 0)}</td>
+                                            <td>${money(item.buyingPrice)}</td>
+                                            <td><b>${Number(item.stockQty || 0)}</b></td>
+                                            <td>${item.expiryDate ? new Date(ms(item.expiryDate)).toLocaleDateString("en-GB") : "-"}</td>
+                                            <td>-</td>
+                                            <td>
+                                                ${
+                                                    item.expiryDate && daysUntil(item.expiryDate) <= 30
+                                                        ? `<button onclick="window.removeLegacyExpiryStock('${item.id}')">Remove Expiry Stock</button>`
+                                                        : "-"
+                                                }
+                                            </td>
+                                        </tr>
+                                    `
+                                    : `<tr><td colspan="9">No invoice / receiving batches recorded.</td></tr>`
+                            )
                         }
                     </tbody>
                 </table>
@@ -2390,6 +2441,67 @@ window.moreItem =
 
 
 
+
+/* =========================================================
+   REMOVE LEGACY EXPIRY STOCK
+========================================================= */
+
+window.removeLegacyExpiryStock = async itemId => {
+    const item = items.find(current => current.id === itemId);
+    if (!item) return;
+
+    const quantity = Number(item.stockQty || 0);
+    if (quantity <= 0) {
+        alert("This item has no stock to remove.");
+        return;
+    }
+
+    if (!item.expiryDate || daysUntil(item.expiryDate) > 30) {
+        alert("This stock is not expired or within 30 days of expiry.");
+        return;
+    }
+
+    if (!confirm(
+        `Remove ${quantity} expiry stock from LEGACY-STOCK?\n\n` +
+        `Current Stock will become 0 and a History record will be kept.`
+    )) return;
+
+    await updateDoc(doc(db, "items", item.id), {
+        stockQty: 0,
+        totalPcs: 0,
+        expiryDate: null,
+        updatedAt: serverTimestamp()
+    });
+
+    await addDoc(collection(db, "stockOut"), {
+        itemNo: item.itemNo,
+        itemName: item.itemName,
+        quantity,
+        unit: item.unitType || item.unit || "",
+        unitType: item.unitType || null,
+        pcsPerUnit: Number(item.pcsPerUnit || 1),
+        totalPcsOut: quantity * Number(item.pcsPerUnit || 1),
+        reason: "Expiry Stock Removal",
+        jobNo: "LEGACY-STOCK",
+        issuedTo: "Expiry Stock Removal",
+        fifoAllocations: [{
+            stockInId: "",
+            invoiceNo: "LEGACY-STOCK",
+            supplierName: item.supplierName || "",
+            buyingPrice: Number(item.buyingPrice || 0),
+            quantity
+        }],
+        issuedBy: user?.email || "",
+        issuedDate: serverTimestamp(),
+        createdAt: serverTimestamp()
+    });
+
+    $("modal").classList.add("hidden");
+    await refresh();
+    alert("Legacy expiry stock removed successfully.");
+};
+
+
 /* =========================================================
    REMOVE EXPIRED BATCH STOCK
 ========================================================= */
@@ -2429,9 +2541,9 @@ window.removeExpiredBatchStock =
 
         if (
             !batch.expiryDate ||
-            daysUntil(batch.expiryDate) >= 0
+            daysUntil(batch.expiryDate) > 30
         ) {
-            alert("Only expired batch stock can be removed here.");
+            alert("This button is available only for expired stock or stock expiring within 30 days.");
             return;
         }
 
