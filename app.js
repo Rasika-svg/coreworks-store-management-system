@@ -3184,93 +3184,59 @@ if (mobileMenuButton && sidebar) {
 
 let deferredInstallPrompt = null;
 const installAppButton = $("installApp");
+const sidebarInstallAppButton = $("sidebarInstallApp");
+
+function isAppInstalled() {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+           window.navigator.standalone === true;
+}
+
+function setInstallButtonsVisible(visible) {
+    [installAppButton, sidebarInstallAppButton].forEach(button => {
+        if (!button) return;
+        button.classList.toggle("hidden", !visible);
+    });
+}
 
 window.addEventListener("beforeinstallprompt", event => {
     event.preventDefault();
     deferredInstallPrompt = event;
 
-    if (installAppButton)
-        installAppButton.classList.remove("hidden");
+    if (!isAppInstalled()) {
+        setInstallButtonsVisible(true);
+    }
 });
 
+async function installCoreworksApp() {
+    if (isAppInstalled()) {
+        setInstallButtonsVisible(false);
+        return;
+    }
+
+    if (!deferredInstallPrompt) {
+        alert("Install option is not ready in this browser. Refresh the page once. If it still does not appear, use Chrome menu → Install app / Add to Home screen.");
+        return;
+    }
+
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    setInstallButtonsVisible(false);
+}
+
 if (installAppButton) {
-    installAppButton.addEventListener("click", async () => {
-        if (!deferredInstallPrompt)
-            return;
+    installAppButton.addEventListener("click", installCoreworksApp);
+}
 
-        deferredInstallPrompt.prompt();
-        await deferredInstallPrompt.userChoice;
-
-        deferredInstallPrompt = null;
-        installAppButton.classList.add("hidden");
-    });
+if (sidebarInstallAppButton) {
+    sidebarInstallAppButton.addEventListener("click", installCoreworksApp);
 }
 
 window.addEventListener("appinstalled", () => {
     deferredInstallPrompt = null;
-
-    if (installAppButton)
-        installAppButton.classList.add("hidden");
+    setInstallButtonsVisible(false);
 });
 
-
-/* =========================================================
-   SIDEBAR PWA INSTALL BUTTON
-========================================================= */
-let sidebarDeferredInstallPrompt = null;
-const sidebarInstallButton = document.getElementById("sidebarInstallApp");
-const floatingInstallButton = document.getElementById("installApp");
-
-function isStandaloneApp() {
-    return window.matchMedia("(display-mode: standalone)").matches ||
-           window.navigator.standalone === true;
+if (isAppInstalled()) {
+    setInstallButtonsVisible(false);
 }
-
-function updateInstallButtons() {
-    const installed = isStandaloneApp();
-
-    if (sidebarInstallButton) {
-        sidebarInstallButton.classList.toggle("hidden", installed);
-    }
-
-    if (floatingInstallButton && installed) {
-        floatingInstallButton.classList.add("hidden");
-    }
-}
-
-window.addEventListener("beforeinstallprompt", event => {
-    event.preventDefault();
-    sidebarDeferredInstallPrompt = event;
-
-    if (sidebarInstallButton && !isStandaloneApp()) {
-        sidebarInstallButton.classList.remove("hidden");
-    }
-});
-
-async function runSidebarInstall() {
-    if (isStandaloneApp()) {
-        return;
-    }
-
-    if (sidebarDeferredInstallPrompt) {
-        sidebarDeferredInstallPrompt.prompt();
-        await sidebarDeferredInstallPrompt.userChoice;
-        sidebarDeferredInstallPrompt = null;
-        updateInstallButtons();
-        return;
-    }
-
-    alert("Install option is not available from the browser yet. In Chrome, open the browser menu and choose Install app / Add to Home screen.");
-}
-
-if (sidebarInstallButton) {
-    sidebarInstallButton.addEventListener("click", runSidebarInstall);
-}
-
-window.addEventListener("appinstalled", () => {
-    sidebarDeferredInstallPrompt = null;
-    updateInstallButtons();
-});
-
-updateInstallButtons();
-
