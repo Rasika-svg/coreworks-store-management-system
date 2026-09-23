@@ -279,7 +279,6 @@ function dashboard() {
 
             return (
                 days !== null &&
-                days >= 0 &&
                 days <= 30
             );
         });
@@ -340,8 +339,11 @@ function dashboard() {
                     ${esc(item.itemName)}
                     |
                     <b>
-                        ${daysUntil(item.expiryDate)}
-                        day(s)
+                        ${
+                            daysUntil(item.expiryDate) < 0
+                                ? `Expired ${Math.abs(daysUntil(item.expiryDate))} day(s) ago`
+                                : `${daysUntil(item.expiryDate)} day(s)`
+                        }
                     </b>
                 </p>
             `
@@ -376,13 +378,12 @@ function getItemStatus(item) {
 
         if (
             remainingDays !== null &&
-            remainingDays >= 0 &&
             remainingDays <= 30
         ) {
 
             return {
                 key: "expiry",
-                label: "Expiry ≤ 30 Days",
+                label: remainingDays < 0 ? "Expired" : "Expiry ≤ 30 Days",
                 className: "row-expiry"
             };
         }
@@ -2302,6 +2303,7 @@ window.moreItem =
                             <th>Remaining Qty</th>
                             <th>Expiry</th>
                             <th>Edit</th>
+                            <th>Expired Stock</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2319,10 +2321,22 @@ window.moreItem =
                                         <td><b>${Number(record.remainingQty ?? record.quantity ?? 0)}</b></td>
                                         <td>${record.expiryDate ? new Date(ms(record.expiryDate)).toLocaleDateString("en-GB") : "-"}</td>
                                         <td><button onclick="window.editReceivingBatch('${record.id}')">Edit</button></td>
+                                        <td>
+                                            ${
+                                                record.expiryDate &&
+                                                daysUntil(record.expiryDate) < 0 &&
+                                                Number(record.remainingQty ?? record.quantity ?? 0) > 0
+                                                    ? `<button onclick="window.removeExpiredBatchStock('${record.id}', '${item.id}')">Remove Expired Stock</button>`
+                                                    : Number(record.remainingQty ?? record.quantity ?? 0) <= 0 &&
+                                                      record.batchStatus === "EXPIRED_REMOVED"
+                                                        ? `<b>Removed</b>`
+                                                        : "-"
+                                            }
+                                        </td>
                                     </tr>
                                 `).join("")
                             ||
-                            `<tr><td colspan="8">No invoice / receiving batches recorded.</td></tr>`
+                            `<tr><td colspan="9">No invoice / receiving batches recorded.</td></tr>`
                         }
                     </tbody>
                 </table>
@@ -2374,6 +2388,169 @@ window.moreItem =
         `);
     };
 
+
+
+/* =========================================================
+   REMOVE EXPIRED BATCH STOCK
+========================================================= */
+
+window.removeExpiredBatchStock =
+    async (batchId, itemId) => {
+
+        const batch =
+            history.find(
+                record =>
+                    record.type === "IN" &&
+                    record.id === batchId
+            );
+
+        const item =
+            items.find(
+                current =>
+                    current.id === itemId
+            );
+
+        if (!batch || !item) {
+            alert("Expired batch or item not found.");
+            return;
+        }
+
+        const remainingQty =
+            Number(
+                batch.remainingQty ??
+                batch.quantity ??
+                0
+            );
+
+        if (remainingQty <= 0) {
+            alert("This batch has no remaining stock.");
+            return;
+        }
+
+        if (
+            !batch.expiryDate ||
+            daysUntil(batch.expiryDate) >= 0
+        ) {
+            alert("Only expired batch stock can be removed here.");
+            return;
+        }
+
+        const confirmed =
+            confirm(
+                `Remove ${remainingQty} expired stock from invoice ${batch.invoiceNo || "-"}?\n\n` +
+                `This will reduce Current Stock and keep the invoice record for history.`
+            );
+
+        if (!confirmed)
+            return;
+
+        const currentStock =
+            Number(item.stockQty || 0);
+
+        if (remainingQty > currentStock) {
+            alert(
+                "The expired batch remaining quantity is greater than the item's current stock. " +
+                "Please check the stock records before removing it."
+            );
+            return;
+        }
+
+        const newQuantity =
+            currentStock - remainingQty;
+
+        const nextActiveBatch =
+            history
+                .filter(
+                    record =>
+                        record.type === "IN" &&
+                        record.itemNo === item.itemNo &&
+                        record.id !== batch.id &&
+                        Number(record.remainingQty ?? record.quantity ?? 0) > 0 &&
+                        record.expiryDate
+                )
+                .sort(
+                    (a, b) =>
+                        ms(a.expiryDate) -
+                        ms(b.expiryDate)
+                )[0] || null;
+
+        await updateDoc(
+            doc(db, "stockIn", batch.id),
+            {
+                remainingQty: 0,
+                batchStatus: "EXPIRED_REMOVED",
+                expiredRemovedQty: remainingQty,
+                expiredRemovedAt: serverTimestamp(),
+                expiredRemovedBy: user?.email || ""
+            }
+        );
+
+        await updateDoc(
+            doc(db, "items", item.id),
+            {
+                stockQty: newQuantity,
+                totalPcs:
+                    newQuantity *
+                    Number(item.pcsPerUnit || 1),
+                expiryDate:
+                    nextActiveBatch
+                        ? nextActiveBatch.expiryDate
+                        : null,
+                updatedAt: serverTimestamp()
+            }
+        );
+
+        await addDoc(
+            collection(db, "stockOut"),
+            {
+                itemNo: item.itemNo,
+                itemName: item.itemName,
+                quantity: remainingQty,
+                unit:
+                    item.unitType ||
+                    item.unit ||
+                    "",
+                unitType:
+                    item.unitType ||
+                    null,
+                pcsPerUnit:
+                    Number(item.pcsPerUnit || 1),
+                totalPcsOut:
+                    remainingQty *
+                    Number(item.pcsPerUnit || 1),
+                reason: "Expired Stock",
+                jobNo:
+                    batch.invoiceNo
+                        ? `EXP-${batch.invoiceNo}`
+                        : "EXPIRED-STOCK",
+                issuedTo: "Expired Stock Removal",
+                fifoAllocations: [
+                    {
+                        stockInId: batch.id,
+                        invoiceNo: batch.invoiceNo || "",
+                        supplierName: batch.supplierName || "",
+                        buyingPrice: Number(batch.buyingPrice || 0),
+                        quantity: remainingQty
+                    }
+                ],
+                expiredBatchId: batch.id,
+                expiredInvoiceNo: batch.invoiceNo || "",
+                issuedBy: user?.email || "",
+                issuedDate: serverTimestamp(),
+                createdAt: serverTimestamp()
+            }
+        );
+
+        $("modal")
+            .classList
+            .add("hidden");
+
+        await refresh();
+
+        alert(
+            "Expired stock removed successfully. The invoice batch was kept in history with Remaining Qty = 0."
+        );
+    };
 
 
 /* =========================================================
