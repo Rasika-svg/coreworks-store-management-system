@@ -45,7 +45,10 @@ let items = [];
 let suppliers = [];
 let history = [];
 let currentRole = "staff";
-const ADMIN_EMAILS = ["design@coreworkstrading.com"];
+const ADMIN_EMAILS = [
+    "design@coreworkstrading.com",
+    "asela@coreworkstrading.com"
+];
 
 function isAdmin() {
     return currentRole === "admin";
