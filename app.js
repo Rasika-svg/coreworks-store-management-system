@@ -2241,6 +2241,11 @@ window.moreItem =
                 </p>
 
                 <p>
+                    <b>PCS per Unit:</b>
+                    ${Number(item.pcsPerUnit || 1)}
+                </p>
+
+                <p>
                     <b>Description:</b>
                     ${esc(
                         item.description || "-"
