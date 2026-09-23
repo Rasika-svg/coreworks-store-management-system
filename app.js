@@ -1023,6 +1023,15 @@ $("inForm").onsubmit =
                         :
                         null,
 
+                receivedQty:
+                    quantity,
+
+                remainingQty:
+                    quantity,
+
+                batchStatus:
+                    quantity > 0 ? "OPEN" : "CLOSED",
+
                 enteredBy:
                     user.email,
 
@@ -1094,6 +1103,62 @@ $("inForm").onsubmit =
 
 
 /* =========================================================
+   FIFO BATCH ALLOCATION
+========================================================= */
+
+async function allocateFifoBatches(item, quantity) {
+    const snapshot = await getDocs(collection(db, "stockIn"));
+
+    const batches = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(r =>
+            r.itemNo === item.itemNo &&
+            Number(r.remainingQty ?? r.quantity ?? 0) > 0
+        )
+        .sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
+
+    let left = quantity;
+    const allocations = [];
+
+    for (const batch of batches) {
+        if (left <= 0) break;
+
+        const available = Number(batch.remainingQty ?? batch.quantity ?? 0);
+        const used = Math.min(available, left);
+        const remaining = available - used;
+
+        await updateDoc(doc(db, "stockIn", batch.id), {
+            remainingQty: remaining,
+            batchStatus: remaining > 0 ? "OPEN" : "CLOSED"
+        });
+
+        allocations.push({
+            stockInId: batch.id,
+            invoiceNo: batch.invoiceNo || "",
+            supplierName: batch.supplierName || "",
+            buyingPrice: Number(batch.buyingPrice || 0),
+            quantity: used
+        });
+
+        left -= used;
+    }
+
+    // Old stock created before batch tracking remains usable.
+    if (left > 0) {
+        allocations.push({
+            stockInId: "",
+            invoiceNo: "LEGACY-STOCK",
+            supplierName: item.supplierName || "",
+            buyingPrice: Number(item.buyingPrice || 0),
+            quantity: left
+        });
+    }
+
+    return allocations;
+}
+
+
+/* =========================================================
    ISSUE
 ========================================================= */
 
@@ -1140,6 +1205,13 @@ $("outForm").onsubmit =
             );
 
 
+        const fifoAllocations =
+            await allocateFifoBatches(
+                item,
+                quantity
+            );
+
+
         await addDoc(
             collection(
                 db,
@@ -1178,6 +1250,8 @@ $("outForm").onsubmit =
 
                 issuedTo:
                     $("issuedTo").value,
+
+                fifoAllocations,
 
                 issuedBy:
                     user.email,
@@ -1594,6 +1668,7 @@ function itemModal(item = null) {
                     id="iStock"
                     type="number"
                     step=".001"
+                    ${item ? "readonly" : ""}
                     value="${
                         item?.stockQty || 0
                     }"
@@ -1628,6 +1703,19 @@ function itemModal(item = null) {
                     ${supplierOptions}
 
                 </select>
+
+            </label>
+
+
+            <label>
+
+                Invoice No
+
+                <input
+                    id="iInvoice"
+                    placeholder="Supplier Invoice No"
+                    value="${esc(item?.invoiceNo || "")}"
+                >
 
             </label>
 
@@ -1811,6 +1899,9 @@ function itemModal(item = null) {
                 supplierName:
                     $("iSupplier").value,
 
+                invoiceNo:
+                    $("iInvoice").value.trim(),
+
                 buyingPrice:
                     Number(
                         $("iPrice").value
@@ -1886,6 +1977,32 @@ function itemModal(item = null) {
                     ),
                     data
                 );
+
+                const openingQty = Number($("iStock").value) || 0;
+
+                if (openingQty > 0) {
+                    await addDoc(
+                        collection(db, "stockIn"),
+                        {
+                            itemNo,
+                            itemName: data.itemName,
+                            quantity: openingQty,
+                            receivedQty: openingQty,
+                            remainingQty: openingQty,
+                            batchStatus: "OPEN",
+                            unit: data.unitType || "",
+                            unitType: data.unitType || null,
+                            pcsPerUnit: Number(data.pcsPerUnit || 1),
+                            buyingPrice: Number(data.buyingPrice || 0),
+                            supplierName: data.supplierName || "",
+                            invoiceNo: data.invoiceNo || "",
+                            expiryDate: data.expiryDate || null,
+                            source: "ADD_ITEM",
+                            enteredBy: user.email,
+                            createdAt: serverTimestamp()
+                        }
+                    );
+                }
             }
 
 
@@ -2163,6 +2280,46 @@ window.moreItem =
 
             </div>
 
+
+            <h4>
+                Receiving / Invoice Batches
+            </h4>
+
+            <div class="table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Invoice No</th>
+                            <th>Supplier</th>
+                            <th>Received Qty</th>
+                            <th>Buying Price</th>
+                            <th>Remaining Qty</th>
+                            <th>Expiry</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${
+                            itemHistory
+                                .filter(record => record.type === "IN")
+                                .sort((a,b) => ms(a.createdAt) - ms(b.createdAt))
+                                .map(record => `
+                                    <tr>
+                                        <td>${ms(record.createdAt) ? new Date(ms(record.createdAt)).toLocaleString("en-GB") : "-"}</td>
+                                        <td>${esc(record.invoiceNo || "-")}</td>
+                                        <td>${esc(record.supplierName || "-")}</td>
+                                        <td>${Number(record.receivedQty ?? record.quantity ?? 0)}</td>
+                                        <td>${money(record.buyingPrice)}</td>
+                                        <td><b>${Number(record.remainingQty ?? record.quantity ?? 0)}</b></td>
+                                        <td>${record.expiryDate ? new Date(ms(record.expiryDate)).toLocaleDateString("en-GB") : "-"}</td>
+                                    </tr>
+                                `).join("")
+                            ||
+                            `<tr><td colspan="7">No invoice / receiving batches recorded.</td></tr>`
+                        }
+                    </tbody>
+                </table>
+            </div>
 
             <h4>
                 Item Movement History
