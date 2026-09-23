@@ -23,8 +23,7 @@
     <div id="app" class="hidden">
         <aside>
             <h2>Coreworks</h2><button data-page="dashboard">Dashboard</button><button
-                data-page="items">Items</button><button data-page="stockin">Stock IN</button><button
-                data-page="stockout">Stock OUT</button><button data-page="history">History</button><button
+                data-page="items">Items</button><button data-page="stockin">Receiving</button><button data-page="stockout">Issue IN</button><button data-page="history">History</button><button
                 data-page="suppliers">Suppliers</button><button id="logout">Sign Out</button>
         </aside>
         <main>
@@ -145,23 +144,21 @@
 </section>
             <section id="stockin" class="page hidden">
                 <div class="card form">
-                    <h3>Stock IN</h3>
+                    <h3>Receiving</h3>
                     <form id="inForm"><select id="inItem" required></select><input id="inQty" type="number" step=".001"
                             placeholder="Quantity" required><input id="inPrice" type="number" step=".01"
                             placeholder="Buying Price" required><input id="inSupplier" placeholder="Supplier"><input
-                            id="inInvoice" placeholder="Invoice No"><input id="inExpiry" type="date"><button>Save Stock
-                            IN</button></form>
+                            id="inInvoice" placeholder="Invoice No"><input id="inExpiry" type="date"><button>Save Receiving</button></form>
                 </div>
             </section>
             <section id="stockout" class="page hidden">
                 <div class="card form">
-                    <h3>Stock OUT</h3>
+                    <h3>Issue IN</h3>
                     <form id="outForm"><input id="barcode" placeholder="Scan / enter Item No or Barcode"
                             required><select id="outItem" required></select><input id="outQty" type="number" step=".001"
                             placeholder="Quantity" required><input id="reason"
                             placeholder="Reason (Production / Sample / Damage)" required><input id="jobNo"
-                            placeholder="Job No"><input id="issuedTo" placeholder="Issued To"><button>Save Stock
-                            OUT</button></form>
+                            placeholder="Job No"><input id="issuedTo" placeholder="Issued To"><button>Save Issue IN</button></form>
                 </div>
             </section>
             <section id="history" class="page hidden">
