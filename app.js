@@ -44,6 +44,34 @@ let user = null;
 let items = [];
 let suppliers = [];
 let history = [];
+let currentRole = "staff";
+const ADMIN_EMAILS = ["design@coreworkstrading.com"];
+
+function isAdmin() {
+    return currentRole === "admin";
+}
+
+function applyPermissions() {
+    currentRole = user && ADMIN_EMAILS.includes(String(user.email || "").toLowerCase()) ? "admin" : "staff";
+
+    const stockValueCard = document.querySelector(".stock-value-card");
+    if (stockValueCard) stockValueCard.classList.toggle("hidden", !isAdmin());
+
+    const addItemButton = $("addItem");
+    if (addItemButton) addItemButton.classList.toggle("hidden", !isAdmin());
+}
+
+async function logActivity(action, item = null, reference = "-") {
+    await addDoc(collection(db, "activityLogs"), {
+        action,
+        itemNo: item?.itemNo || "-",
+        itemName: item?.itemName || "-",
+        quantity: 0,
+        reference,
+        performedBy: user?.email || "-",
+        createdAt: serverTimestamp()
+    });
+}
 
 const $ = id => document.getElementById(id);
 
@@ -111,6 +139,7 @@ onAuthStateChanged(
             $("user").textContent =
                 currentUser.email;
 
+            applyPermissions();
             await refresh();
 
         } else {
@@ -214,6 +243,9 @@ async function refresh() {
         const stockOut =
             await getCollection("stockOut");
 
+        const activityLogs =
+            await getCollection("activityLogs");
+
         history = [
 
             ...stockIn.map(
@@ -227,6 +259,13 @@ async function refresh() {
                 record => ({
                     ...record,
                     type: "OUT"
+                })
+            ),
+
+            ...activityLogs.map(
+                record => ({
+                    ...record,
+                    type: "ACTIVITY"
                 })
             )
 
@@ -350,8 +389,8 @@ function dashboard() {
     $("nExp").textContent =
         expiring.length;
 
-    $("nVal").textContent =
-        money(stockValue);
+    if (isAdmin() && $("nVal"))
+        $("nVal").textContent = money(stockValue);
 
     $("low").innerHTML =
         lowStock
@@ -431,7 +470,7 @@ function dashboard() {
         ||
         "<p>No non-moving items.</p>";
 
-    renderStockValueSelector(stockValue);
+    if (isAdmin()) renderStockValueSelector(stockValue);
 }
 
 
@@ -962,11 +1001,12 @@ function renderItems() {
 
                         <td class="actions">
 
+                            ${isAdmin() ? `
                             <button
                                 onclick="window.editItem('${item.id}')"
                             >
                                 Edit
-                            </button>
+                            </button>` : ""}
 
                             <button
                                 onclick="window.itemBarcode('${item.id}')"
@@ -1522,7 +1562,13 @@ function renderHistory() {
                     record.jobNo,
                     record.invoiceNo,
                     record.issuedTo,
-                    record.supplierName
+                    record.supplierName,
+                    record.action,
+                    record.reference,
+                    record.issuedBy,
+                    record.enteredBy,
+                    record.updatedBy,
+                    record.performedBy
 
                 ].some(
                     value =>
@@ -1696,6 +1742,11 @@ $("addItem").onclick =
 
 
 function itemModal(item = null) {
+
+    if (!isAdmin()) {
+        alert("You do not have permission to add or edit items.");
+        return;
+    }
 
     const supplierOptions =
 
@@ -2137,7 +2188,10 @@ function itemModal(item = null) {
                     ),
 
                 updatedAt:
-                    serverTimestamp()
+                    serverTimestamp(),
+
+                updatedBy:
+                    user?.email || "-"
             };
 
 
@@ -2195,6 +2249,12 @@ function itemModal(item = null) {
             }
 
 
+            await logActivity(
+                item ? "Item Edited" : "Item Added",
+                { itemNo, itemName: data.itemName },
+                item ? "ITEM-EDIT" : "ITEM-ADD"
+            );
+
             $("modal")
                 .classList
                 .add("hidden");
@@ -2211,6 +2271,11 @@ function itemModal(item = null) {
 
 window.editItem =
     id => {
+
+        if (!isAdmin()) {
+            alert("You do not have permission to edit items.");
+            return;
+        }
 
         const item =
             items.find(
@@ -2508,7 +2573,7 @@ window.moreItem =
                                         <td>${money(record.buyingPrice)}</td>
                                         <td><b>${Number(record.remainingQty ?? record.quantity ?? 0)}</b></td>
                                         <td>${record.expiryDate ? new Date(ms(record.expiryDate)).toLocaleDateString("en-GB") : "-"}</td>
-                                        <td><button onclick="window.editReceivingBatch('${record.id}')">Edit</button></td>
+                                        <td>${isAdmin() ? `<button onclick="window.editReceivingBatch('${record.id}')">Edit</button>` : "-"}</td>
                                         <td>
                                             ${
                                                 record.expiryDate &&
@@ -2830,6 +2895,11 @@ window.removeExpiredBatchStock =
 
 window.editReceivingBatch =
     async id => {
+
+        if (!isAdmin()) {
+            alert("You do not have permission to edit receiving batches.");
+            return;
+        }
 
         const batch =
             history.find(
