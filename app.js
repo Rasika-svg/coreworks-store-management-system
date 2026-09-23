@@ -3184,63 +3184,31 @@ if (mobileMenuButton && sidebar) {
 
 let deferredInstallPrompt = null;
 const installAppButton = $("installApp");
-const sidebarInstallAppButton = $("sidebarInstallApp");
-
-function isAppInstalled() {
-    return window.matchMedia("(display-mode: standalone)").matches ||
-           window.navigator.standalone === true;
-}
-
-function setInstallButtonsVisible(visible) {
-    if (installAppButton) {
-        installAppButton.classList.toggle("hidden", !visible);
-    }
-
-    // Sidebar Install App button must always remain visible.
-    if (sidebarInstallAppButton) {
-        sidebarInstallAppButton.classList.remove("hidden");
-    }
-}
 
 window.addEventListener("beforeinstallprompt", event => {
     event.preventDefault();
     deferredInstallPrompt = event;
 
-    if (!isAppInstalled()) {
-        setInstallButtonsVisible(true);
-    }
+    if (installAppButton)
+        installAppButton.classList.remove("hidden");
 });
 
-async function installCoreworksApp() {
-    if (isAppInstalled()) {
-        alert("Coreworks app is already installed on this device.");
-        return;
-    }
-
-    if (!deferredInstallPrompt) {
-        alert("Install option is not ready in this browser. Refresh the page once. If it still does not appear, use Chrome menu → Install app / Add to Home screen.");
-        return;
-    }
-
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-    setInstallButtonsVisible(false);
-}
-
 if (installAppButton) {
-    installAppButton.addEventListener("click", installCoreworksApp);
-}
+    installAppButton.addEventListener("click", async () => {
+        if (!deferredInstallPrompt)
+            return;
 
-if (sidebarInstallAppButton) {
-    sidebarInstallAppButton.addEventListener("click", installCoreworksApp);
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+
+        deferredInstallPrompt = null;
+        installAppButton.classList.add("hidden");
+    });
 }
 
 window.addEventListener("appinstalled", () => {
     deferredInstallPrompt = null;
-    setInstallButtonsVisible(false);
-});
 
-if (isAppInstalled()) {
-    setInstallButtonsVisible(false);
-}
+    if (installAppButton)
+        installAppButton.classList.add("hidden");
+});

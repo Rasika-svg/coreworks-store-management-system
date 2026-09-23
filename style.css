@@ -614,19 +614,3 @@ header h2 {
         -webkit-overflow-scrolling: touch;
     }
 }
-
-
-/* =========================================
-   SIDEBAR INSTALL APP BUTTON - CLEAN FIX
-========================================= */
-aside #sidebarInstallApp {
-    margin-top: 8px;
-    background: #1f4fd8;
-    color: #ffffff;
-    text-align: center;
-    font-weight: 700;
-}
-
-aside #sidebarInstallApp:hover {
-    background: #1a43ba;
-}
