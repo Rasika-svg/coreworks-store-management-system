@@ -2296,6 +2296,7 @@ window.moreItem =
                             <th>Buying Price</th>
                             <th>Remaining Qty</th>
                             <th>Expiry</th>
+                            <th>Edit</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2312,10 +2313,11 @@ window.moreItem =
                                         <td>${money(record.buyingPrice)}</td>
                                         <td><b>${Number(record.remainingQty ?? record.quantity ?? 0)}</b></td>
                                         <td>${record.expiryDate ? new Date(ms(record.expiryDate)).toLocaleDateString("en-GB") : "-"}</td>
+                                        <td><button onclick="window.editReceivingBatch('${record.id}')">Edit</button></td>
                                     </tr>
                                 `).join("")
                             ||
-                            `<tr><td colspan="7">No invoice / receiving batches recorded.</td></tr>`
+                            `<tr><td colspan="8">No invoice / receiving batches recorded.</td></tr>`
                         }
                     </tbody>
                 </table>
@@ -2365,6 +2367,157 @@ window.moreItem =
 
             </div>
         `);
+    };
+
+
+
+/* =========================================================
+   EDIT RECEIVING / INVOICE BATCH
+========================================================= */
+
+window.editReceivingBatch =
+    async id => {
+
+        const batch =
+            history.find(
+                record =>
+                    record.type === "IN" &&
+                    record.id === id
+            );
+
+        if (!batch) {
+            alert("Receiving batch not found.");
+            return;
+        }
+
+        const supplierOptions =
+            `<option value="">Select Supplier</option>` +
+            suppliers
+                .filter(supplier => supplier.active !== false)
+                .map(supplier => `
+                    <option value="${esc(supplier.companyName)}">
+                        ${esc(supplier.companyName)}
+                    </option>
+                `)
+                .join("");
+
+        const expiryValue =
+            batch.expiryDate
+                ? new Date(ms(batch.expiryDate))
+                    .toISOString()
+                    .slice(0, 10)
+                : "";
+
+        openModal(`
+            <h3>Edit Receiving / Invoice Batch</h3>
+
+            <form id="batchEditForm" class="itemgrid">
+
+                <label>
+                    Invoice No
+                    <input
+                        id="batchInvoice"
+                        value="${esc(batch.invoiceNo || "")}"
+                    >
+                </label>
+
+                <label>
+                    Supplier
+                    <select id="batchSupplier">
+                        ${supplierOptions}
+                    </select>
+                </label>
+
+                <label>
+                    Buying Price
+                    <input
+                        id="batchPrice"
+                        type="number"
+                        step=".01"
+                        min="0"
+                        value="${Number(batch.buyingPrice || 0)}"
+                        required
+                    >
+                </label>
+
+                <label>
+                    Expiry Date
+                    <input
+                        id="batchExpiry"
+                        type="date"
+                        value="${expiryValue}"
+                    >
+                </label>
+
+                <label>
+                    Received Qty
+                    <input
+                        value="${Number(batch.receivedQty ?? batch.quantity ?? 0)}"
+                        readonly
+                    >
+                </label>
+
+                <label>
+                    Remaining Qty
+                    <input
+                        value="${Number(batch.remainingQty ?? batch.quantity ?? 0)}"
+                        readonly
+                    >
+                </label>
+
+                <button class="full" type="submit">
+                    Save Batch Changes
+                </button>
+            </form>
+        `);
+
+        $("batchSupplier").value =
+            batch.supplierName || "";
+
+        $("batchEditForm").onsubmit =
+            async event => {
+
+                event.preventDefault();
+
+                const invoiceNo =
+                    $("batchInvoice").value.trim();
+
+                const supplierName =
+                    $("batchSupplier").value;
+
+                const buyingPrice =
+                    Number($("batchPrice").value) || 0;
+
+                const expiryDate =
+                    $("batchExpiry").value
+                        ? new Date(
+                            $("batchExpiry").value +
+                            "T00:00:00"
+                        )
+                        : null;
+
+                await updateDoc(
+                    doc(db, "stockIn", batch.id),
+                    {
+                        invoiceNo,
+                        supplierName,
+                        buyingPrice,
+                        expiryDate,
+                        updatedAt: serverTimestamp(),
+                        updatedBy: user?.email || ""
+                    }
+                );
+
+                $("modal")
+                    .classList
+                    .add("hidden");
+
+                await refresh();
+
+                alert(
+                    "Invoice batch updated successfully. Received Qty and Remaining Qty were not changed."
+                );
+            };
     };
 
 
