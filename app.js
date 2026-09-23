@@ -3212,3 +3212,13 @@ window.addEventListener("appinstalled", () => {
     if (installAppButton)
         installAppButton.classList.add("hidden");
 });
+
+const sidebarInstallAppBtn = $("sidebarInstallApp");
+if (sidebarInstallAppBtn) {
+  sidebarInstallAppBtn.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+  });
+}
