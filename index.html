@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Coreworks Store Management</title>
     <link rel="stylesheet" href="style.css">
+    <meta name="theme-color" content="#111827">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Coreworks Store">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 </head>
 
@@ -28,6 +36,7 @@
         </aside>
         <main>
             <header>
+                <button id="mobileMenu" class="mobile-menu-btn" type="button" aria-label="Open menu">☰</button>
                 <h2 id="title">Dashboard</h2><span id="user"></span><button id="refresh">Refresh</button>
             </header>
             <section id="dashboard" class="page">
@@ -229,7 +238,15 @@
             <div id="modalBody"></div>
         </div>
     </div>
+    <button id="installApp" class="install-app hidden" type="button">Install App</button>
     <script type="module" src="app.js"></script>
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("./sw.js").catch(console.error);
+            });
+        }
+    </script>
 </body>
 
 </html>

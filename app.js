@@ -3086,3 +3086,56 @@ function supplierModal() {
             await refresh();
         };
 }
+
+/* =========================================================
+   MOBILE / PWA
+========================================================= */
+
+const mobileMenuButton = $("mobileMenu");
+const sidebar = document.querySelector("aside");
+
+if (mobileMenuButton && sidebar) {
+    mobileMenuButton.addEventListener("click", () => {
+        sidebar.classList.toggle("mobile-open");
+    });
+
+    document
+        .querySelectorAll("aside button[data-page]")
+        .forEach(button => {
+            button.addEventListener("click", () => {
+                if (window.innerWidth <= 800)
+                    sidebar.classList.remove("mobile-open");
+            });
+        });
+}
+
+let deferredInstallPrompt = null;
+const installAppButton = $("installApp");
+
+window.addEventListener("beforeinstallprompt", event => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+
+    if (installAppButton)
+        installAppButton.classList.remove("hidden");
+});
+
+if (installAppButton) {
+    installAppButton.addEventListener("click", async () => {
+        if (!deferredInstallPrompt)
+            return;
+
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+
+        deferredInstallPrompt = null;
+        installAppButton.classList.add("hidden");
+    });
+}
+
+window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+
+    if (installAppButton)
+        installAppButton.classList.add("hidden");
+});
