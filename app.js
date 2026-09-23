@@ -3192,10 +3192,14 @@ function isAppInstalled() {
 }
 
 function setInstallButtonsVisible(visible) {
-    [installAppButton, sidebarInstallAppButton].forEach(button => {
-        if (!button) return;
-        button.classList.toggle("hidden", !visible);
-    });
+    if (installAppButton) {
+        installAppButton.classList.toggle("hidden", !visible);
+    }
+
+    // Sidebar Install App button must always remain visible.
+    if (sidebarInstallAppButton) {
+        sidebarInstallAppButton.classList.remove("hidden");
+    }
 }
 
 window.addEventListener("beforeinstallprompt", event => {
@@ -3209,7 +3213,7 @@ window.addEventListener("beforeinstallprompt", event => {
 
 async function installCoreworksApp() {
     if (isAppInstalled()) {
-        setInstallButtonsVisible(false);
+        alert("Coreworks app is already installed on this device.");
         return;
     }
 
