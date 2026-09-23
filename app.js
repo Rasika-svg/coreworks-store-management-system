@@ -3212,3 +3212,65 @@ window.addEventListener("appinstalled", () => {
     if (installAppButton)
         installAppButton.classList.add("hidden");
 });
+
+
+/* =========================================================
+   SIDEBAR PWA INSTALL BUTTON
+========================================================= */
+let sidebarDeferredInstallPrompt = null;
+const sidebarInstallButton = document.getElementById("sidebarInstallApp");
+const floatingInstallButton = document.getElementById("installApp");
+
+function isStandaloneApp() {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+           window.navigator.standalone === true;
+}
+
+function updateInstallButtons() {
+    const installed = isStandaloneApp();
+
+    if (sidebarInstallButton) {
+        sidebarInstallButton.classList.toggle("hidden", installed);
+    }
+
+    if (floatingInstallButton && installed) {
+        floatingInstallButton.classList.add("hidden");
+    }
+}
+
+window.addEventListener("beforeinstallprompt", event => {
+    event.preventDefault();
+    sidebarDeferredInstallPrompt = event;
+
+    if (sidebarInstallButton && !isStandaloneApp()) {
+        sidebarInstallButton.classList.remove("hidden");
+    }
+});
+
+async function runSidebarInstall() {
+    if (isStandaloneApp()) {
+        return;
+    }
+
+    if (sidebarDeferredInstallPrompt) {
+        sidebarDeferredInstallPrompt.prompt();
+        await sidebarDeferredInstallPrompt.userChoice;
+        sidebarDeferredInstallPrompt = null;
+        updateInstallButtons();
+        return;
+    }
+
+    alert("Install option is not available from the browser yet. In Chrome, open the browser menu and choose Install app / Add to Home screen.");
+}
+
+if (sidebarInstallButton) {
+    sidebarInstallButton.addEventListener("click", runSidebarInstall);
+}
+
+window.addEventListener("appinstalled", () => {
+    sidebarDeferredInstallPrompt = null;
+    updateInstallButtons();
+});
+
+updateInstallButtons();
+
