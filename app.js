@@ -23,7 +23,7 @@ import {
 ========================================================= */
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDXHA-L-TqWGi jVXD0k5nGw0YFrgzM5yA".replaceAll(" ", ""),
+    apiKey: "AIzaSyDXHA-L-IqWGi jVXDooQk5nGw0YFrgzM5yA".replaceAll(" ", ""),
     authDomain: "coreworks-store.firebaseapp.com",
     projectId: "coreworks-store",
     storageBucket: "coreworks-store.firebasestorage.app",
