@@ -35,16 +35,37 @@
                     <div>Total Items<strong id="nItems">0</strong></div>
                     <div>Low Stock<strong id="nLow">0</strong></div>
                     <div>Expiring 7 Days<strong id="nExp">0</strong></div>
-                    <div>Stock Value<strong id="nVal">Rs. 0</strong></div>
+                    <div class="stock-value-card">
+                        Stock Value
+                        <strong id="nVal">Rs. 0</strong>
+                        <select id="stockValueItem">
+                            <option value="all">All Items - Total Stock Value</option>
+                        </select>
+                        <div id="selectedStockValue" class="selected-stock-value">
+                            Total stock value shown above
+                        </div>
+                    </div>
                 </div>
-                <div class="cols">
-                    <div class="card">
+
+                <div class="dashboard-grid">
+                    <div class="card dashboard-alert minimum-alert">
                         <h3>Minimum Quantity Alerts</h3>
                         <div id="low"></div>
                     </div>
-                    <div class="card">
+
+                    <div class="card dashboard-alert expiry-alert">
                         <h3>Expiring Within 7 Days</h3>
                         <div id="exp"></div>
+                    </div>
+
+                    <div class="card dashboard-alert one-time-alert">
+                        <h3>One Time Non Moving Item</h3>
+                        <div id="oneTimeNonMoving"></div>
+                    </div>
+
+                    <div class="card dashboard-alert non-moving-alert">
+                        <h3>Non Moving Item</h3>
+                        <div id="nonMoving"></div>
                     </div>
                 </div>
             </section>

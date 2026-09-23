@@ -261,6 +261,10 @@ async function refresh() {
 
 function dashboard() {
 
+    const now = Date.now();
+    const sixMonths = 183 * 24 * 60 * 60 * 1000;
+    const twelveMonths = 365 * 24 * 60 * 60 * 1000;
+
     const lowStock =
         items.filter(
             item =>
@@ -268,10 +272,14 @@ function dashboard() {
                 Number(item.minimumQty || 0)
         );
 
+    // Dashboard warning is specifically 7 days.
+    // Already expired items are also kept in this warning list until their
+    // expired stock is removed.
     const expiring =
         items.filter(item => {
 
-            const effectiveExpiry = getEffectiveExpiry(item);
+            const effectiveExpiry =
+                getEffectiveExpiry(item);
 
             if (!effectiveExpiry)
                 return false;
@@ -281,10 +289,48 @@ function dashboard() {
 
             return (
                 days !== null &&
-                days <= 30
+                days <= 7
             );
         });
 
+    const oneTimeNonMoving =
+        items.filter(item => {
+
+            const issuesLast6Months =
+                history.filter(
+                    record =>
+                        record.type === "OUT" &&
+                        record.itemNo === item.itemNo &&
+                        ms(record.createdAt) &&
+                        now - ms(record.createdAt) <= sixMonths
+                );
+
+            return issuesLast6Months.length === 1;
+        });
+
+    const nonMoving =
+        items.filter(item => {
+
+            const itemCreated =
+                ms(item.createdAt);
+
+            // Do not mark a newly-created item as 12-month non-moving.
+            if (
+                !itemCreated ||
+                now - itemCreated < twelveMonths
+            )
+                return false;
+
+            const movementsLast12Months =
+                history.filter(
+                    record =>
+                        record.itemNo === item.itemNo &&
+                        ms(record.createdAt) &&
+                        now - ms(record.createdAt) <= twelveMonths
+                );
+
+            return movementsLast12Months.length === 0;
+        });
 
     const stockValue =
         items.reduce(
@@ -294,7 +340,6 @@ function dashboard() {
                 Number(item.buyingPrice || 0),
             0
         );
-
 
     $("nItems").textContent =
         items.length;
@@ -307,7 +352,6 @@ function dashboard() {
 
     $("nVal").textContent =
         money(stockValue);
-
 
     $("low").innerHTML =
         lowStock
@@ -329,7 +373,6 @@ function dashboard() {
             .join("")
         ||
         "<p>No alerts.</p>";
-
 
     $("exp").innerHTML =
         expiring
@@ -353,9 +396,125 @@ function dashboard() {
             .join("")
         ||
         "<p>No expiring items.</p>";
+
+    $("oneTimeNonMoving").innerHTML =
+        oneTimeNonMoving
+            .map(
+                item => `
+                <p>
+                    ${esc(item.itemNo)}
+                    —
+                    ${esc(item.itemName)}
+                    |
+                    <b>Used once in last 6 months</b>
+                </p>
+            `
+            )
+            .join("")
+        ||
+        "<p>No one-time non moving items.</p>";
+
+    $("nonMoving").innerHTML =
+        nonMoving
+            .map(
+                item => `
+                <p>
+                    ${esc(item.itemNo)}
+                    —
+                    ${esc(item.itemName)}
+                    |
+                    <b>No movement in last 12 months</b>
+                </p>
+            `
+            )
+            .join("")
+        ||
+        "<p>No non-moving items.</p>";
+
+    renderStockValueSelector(stockValue);
 }
 
 
+function renderStockValueSelector(totalStockValue) {
+
+    const select =
+        $("stockValueItem");
+
+    if (!select)
+        return;
+
+    const previousValue =
+        select.value || "all";
+
+    select.innerHTML =
+        `<option value="all">All Items - Total Stock Value</option>` +
+        items
+            .slice()
+            .sort(
+                (a, b) =>
+                    String(a.itemNo || "")
+                        .localeCompare(
+                            String(b.itemNo || "")
+                        )
+            )
+            .map(
+                item => `
+                    <option value="${esc(item.id)}">
+                        ${esc(item.itemNo)} — ${esc(item.itemName)}
+                    </option>
+                `
+            )
+            .join("");
+
+    if (
+        previousValue === "all" ||
+        items.some(item => item.id === previousValue)
+    )
+        select.value = previousValue;
+    else
+        select.value = "all";
+
+    const updateSelectedValue = () => {
+
+        if (select.value === "all") {
+
+            $("nVal").textContent =
+                money(totalStockValue);
+
+            $("selectedStockValue").innerHTML =
+                `Total stock value: <b>${money(totalStockValue)}</b>`;
+
+            return;
+        }
+
+        const item =
+            items.find(
+                current =>
+                    current.id === select.value
+            );
+
+        if (!item)
+            return;
+
+        const value =
+            Number(item.stockQty || 0) *
+            Number(item.buyingPrice || 0);
+
+        $("nVal").textContent =
+            money(value);
+
+        $("selectedStockValue").innerHTML =
+            `${esc(item.itemNo)} — ${esc(item.itemName)}<br>` +
+            `Stock: <b>${Number(item.stockQty || 0)}</b> × ` +
+            `Buying: <b>${money(item.buyingPrice)}</b><br>` +
+            `Item Stock Value: <b>${money(value)}</b>`;
+    };
+
+    select.onchange =
+        updateSelectedValue;
+
+    updateSelectedValue();
+}
 
 function getEffectiveExpiry(item) {
     const itemBatches = history.filter(

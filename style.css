@@ -324,3 +324,64 @@ header h2 {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================
+   COREWORKS - DASHBOARD UPDATE
+========================================= */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.dashboard-alert {
+    min-height: 160px;
+}
+
+.minimum-alert {
+    background: #fff1d6 !important;
+    border-color: #f3c77a !important;
+}
+
+.expiry-alert {
+    background: #ffdede !important;
+    border-color: #efaaaa !important;
+}
+
+.one-time-alert {
+    background: #dff2ff !important;
+    border-color: #a9d9f5 !important;
+}
+
+.non-moving-alert {
+    background: #ffe9e9 !important;
+    border-color: #efbcbc !important;
+}
+
+.stock-value-card select {
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px;
+    border: 1px solid #d7dce5;
+    border-radius: 7px;
+    background: white;
+    color: #182230;
+}
+
+.selected-stock-value {
+    margin-top: 9px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #475467;
+}
+
+.dashboard-alert p {
+    margin: 9px 0;
+}
+
+@media (max-width: 800px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
