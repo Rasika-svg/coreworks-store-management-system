@@ -288,6 +288,8 @@ async function refresh() {
 
         renderHistory();
 
+        renderStockReport();
+
     } catch (error) {
 
         console.error(error);
@@ -1140,6 +1142,207 @@ function loadSelects() {
         supplierOptions;
 }
 
+
+
+/* =========================================================
+   CURRENT STOCK REPORT / A4 PDF
+========================================================= */
+
+function getCurrentStockReportItems() {
+    return items
+        .filter(item => Number(item.stockQty || 0) > 0)
+        .slice()
+        .sort((a, b) =>
+            String(a.itemNo || "").localeCompare(String(b.itemNo || ""))
+        );
+}
+
+function reportDate(value) {
+    if (!value) return "-";
+    const time = ms(value);
+    if (!time) return "-";
+    return new Date(time).toLocaleDateString("en-GB");
+}
+
+function renderStockReport() {
+    const rows = $("reportRows");
+    if (!rows) return;
+
+    const data = getCurrentStockReportItems();
+    const totalQty = data.reduce(
+        (sum, item) => sum + Number(item.stockQty || 0),
+        0
+    );
+
+    if ($("reportItemCount"))
+        $("reportItemCount").textContent = data.length;
+
+    if ($("reportTotalQty"))
+        $("reportTotalQty").textContent =
+            Number(totalQty).toLocaleString("en-LK");
+
+    if ($("reportGeneratedAt"))
+        $("reportGeneratedAt").textContent =
+            new Date().toLocaleString("en-GB");
+
+    rows.innerHTML = data.map(item => {
+        const expiry = getEffectiveExpiry(item);
+        const status = getItemStatus(item);
+
+        return `
+            <tr class="${status.className}">
+                <td>${esc(item.itemNo || "-")}</td>
+                <td>${esc(item.itemName || "-")}</td>
+                <td>${esc(item.description || "-")}</td>
+                <td>${esc(item.specification || "-")}</td>
+                <td>${esc(item.location || "-")}</td>
+                <td>${esc(item.unitType || item.unit || "-")}</td>
+                <td><b>${Number(item.stockQty || 0)}</b></td>
+                <td>${Number(item.minimumQty || 0)}</td>
+                <td>${esc(item.supplierName || "-")}</td>
+                <td>${expiry ? reportDate(expiry) : "-"}</td>
+                <td>${esc(status.label)}</td>
+            </tr>
+        `;
+    }).join("") || `
+        <tr>
+            <td colspan="11">No items currently in stock.</td>
+        </tr>
+    `;
+}
+
+function downloadCurrentStockPDF() {
+    const data = getCurrentStockReportItems();
+
+    if (!data.length) {
+        alert("No items currently in stock.");
+        return;
+    }
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("PDF library did not load. Check the internet connection and refresh the page.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const generated = new Date();
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("COREWORKS TRADING (PVT) LTD.", 14, 15);
+
+    pdf.setFontSize(12);
+    pdf.text("Current Stock Report", 14, 22);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.text(
+        `Generated: ${generated.toLocaleString("en-GB")}`,
+        14,
+        28
+    );
+    pdf.text(
+        `Items in stock: ${data.length}`,
+        pageWidth - 14,
+        28,
+        { align: "right" }
+    );
+
+    const body = data.map(item => {
+        const expiry = getEffectiveExpiry(item);
+        const status = getItemStatus(item);
+
+        return [
+            item.itemNo || "-",
+            item.itemName || "-",
+            item.description || "-",
+            item.specification || "-",
+            item.location || "-",
+            item.unitType || item.unit || "-",
+            String(Number(item.stockQty || 0)),
+            String(Number(item.minimumQty || 0)),
+            item.supplierName || "-",
+            expiry ? reportDate(expiry) : "-",
+            status.label
+        ];
+    });
+
+    pdf.autoTable({
+        startY: 33,
+        head: [[
+            "Item No",
+            "Item Name",
+            "Description",
+            "Specification",
+            "Location",
+            "Unit",
+            "Stock",
+            "Min",
+            "Supplier",
+            "Expiry",
+            "Status"
+        ]],
+        body,
+        theme: "grid",
+        styles: {
+            font: "helvetica",
+            fontSize: 6.7,
+            cellPadding: 1.7,
+            overflow: "linebreak",
+            valign: "middle"
+        },
+        headStyles: {
+            fillColor: [17, 24, 39],
+            textColor: [255, 255, 255],
+            fontStyle: "bold"
+        },
+        columnStyles: {
+            0: { cellWidth: 20 },
+            1: { cellWidth: 31 },
+            2: { cellWidth: 36 },
+            3: { cellWidth: 30 },
+            4: { cellWidth: 20 },
+            5: { cellWidth: 15 },
+            6: { cellWidth: 15, halign: "right" },
+            7: { cellWidth: 14, halign: "right" },
+            8: { cellWidth: 29 },
+            9: { cellWidth: 20 },
+            10: { cellWidth: 30 }
+        },
+        didDrawPage: function () {
+            const pageNo = pdf.internal.getNumberOfPages();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            pdf.setFontSize(7);
+            pdf.setTextColor(100);
+            pdf.text(
+                `Coreworks Store Management System  |  Page ${pageNo}`,
+                14,
+                pageHeight - 6
+            );
+        }
+    });
+
+    const stamp =
+        generated.getFullYear() + "-" +
+        String(generated.getMonth() + 1).padStart(2, "0") + "-" +
+        String(generated.getDate()).padStart(2, "0");
+
+    pdf.save(`Coreworks_Current_Stock_Report_${stamp}.pdf`);
+}
+
+if ($("downloadStockPdf"))
+    $("downloadStockPdf").addEventListener(
+        "click",
+        downloadCurrentStockPDF
+    );
 
 /* =========================================================
    BARCODE SEARCH / CAMERA SCANNER - ISSUE
