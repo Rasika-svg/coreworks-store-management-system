@@ -2059,6 +2059,11 @@ function renderHistory() {
         history.filter(
             record => {
 
+                // Hide system/admin activity logs from stock History.
+                // Backup exports remain in activityLogs but are not shown as Issue rows.
+                if (record.type === "ACTIVITY")
+                    return false;
+
                 const correctType =
                     type === "All" ||
                     record.type === type;
