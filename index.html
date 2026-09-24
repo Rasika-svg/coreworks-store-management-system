@@ -156,10 +156,24 @@
             <section id="stockin" class="page hidden">
                 <div class="card form">
                     <h3>Receiving</h3>
-                    <form id="inForm"><select id="inItem" required></select><input id="inQty" type="number" step=".001"
-                            placeholder="Quantity" required><input id="inPrice" type="number" step=".01"
-                            placeholder="Buying Price" required><input id="inSupplier" placeholder="Supplier"><input
-                            id="inInvoice" placeholder="Invoice No"><input id="inExpiry" type="date"><button>Save Receiving</button></form>
+                    <form id="inForm">
+                            <div class="barcode-input-wrap receiving-barcode-wrap">
+                                <input id="inBarcode" placeholder="Scan / enter Item No or Barcode">
+                                <button id="openReceivingBarcodeScanner" class="barcode-scan-btn" type="button" aria-label="Scan barcode" title="Scan Barcode">
+                                    <span class="scan-corners" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                            <select id="inItem" required></select>
+                            <input id="inQty" type="number" step=".001" placeholder="Quantity" required>
+                            <input id="inPrice" type="number" step=".01" placeholder="Buying Price" required>
+                            <input id="inSupplier" placeholder="Supplier">
+                            <input id="inInvoice" placeholder="Invoice No">
+                            <label class="receiving-expiry-field">
+                                <span>Expiry Date</span>
+                                <input id="inExpiry" type="date">
+                            </label>
+                            <button>Save Receiving</button>
+                        </form>
                 </div>
             </section>
             <section id="stockout" class="page hidden">
@@ -269,12 +283,6 @@
 
                     <button id="exportBackup" class="backup-download-btn" type="button">Export Backup</button>
                     <small class="backup-note">The JSON backup file is saved only on the phone or computer that presses this button.</small>
-
-                    <div class="last-backup-card">
-                        <span class="last-backup-label">LAST BACKUP</span>
-                        <div><strong id="lastBackupDate">No backup record yet</strong></div>
-                        <div class="last-backup-by">Admin: <span id="lastBackupBy">-</span></div>
-                    </div>
                 </div>
             </section>
         </main>

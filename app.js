@@ -1161,29 +1161,8 @@ function renderBackupSummary() {
     if ($("backupSuppliersCount"))
         $("backupSuppliersCount").textContent = suppliers.length;
 
-    const stockHistory = history.filter(record =>
-        record.type === "IN" || record.type === "OUT"
-    );
-
     if ($("backupHistoryCount"))
-        $("backupHistoryCount").textContent = stockHistory.length;
-
-    const lastBackup = history
-        .filter(record =>
-            record.type === "ACTIVITY" &&
-            record.action === "SYSTEM_BACKUP_EXPORTED"
-        )
-        .sort((a, b) => ms(b.createdAt) - ms(a.createdAt))[0];
-
-    if ($("lastBackupDate"))
-        $("lastBackupDate").textContent =
-            lastBackup && ms(lastBackup.createdAt)
-                ? new Date(ms(lastBackup.createdAt)).toLocaleString("en-GB")
-                : "No backup record yet";
-
-    if ($("lastBackupBy"))
-        $("lastBackupBy").textContent =
-            lastBackup?.performedBy || "-";
+        $("backupHistoryCount").textContent = history.length;
 }
 
 function cleanBackupValue(value) {
@@ -1542,8 +1521,42 @@ $("barcode").addEventListener("input", () => {
 let barcodeCodeReader = null;
 let barcodeScannerRunning = false;
 let barcodeScanLocked = false;
+let barcodeScannerMode = "issue";
 
-async function openBarcodeScanner() {
+function selectReceivingItemByCode(rawCode, showNotFound = false) {
+    const search = String(rawCode || "").trim().toLowerCase();
+    if (!search) return false;
+
+    const item = items.find(current =>
+        String(current.itemNo || "").trim().toLowerCase() === search ||
+        String(current.barcode || "").trim().toLowerCase() === search
+    );
+
+    if (item) {
+        if ($("inBarcode")) $("inBarcode").value = item.itemNo || rawCode;
+        $("inItem").value = item.id;
+        return true;
+    }
+
+    if (showNotFound)
+        alert(`No item found for barcode / item no: ${rawCode}`);
+
+    return false;
+}
+
+if ($("inBarcode")) {
+    $("inBarcode").addEventListener("change", () => {
+        selectReceivingItemByCode($("inBarcode").value);
+    });
+
+    $("inBarcode").addEventListener("input", () => {
+        const value = $("inBarcode").value.trim();
+        if (value) selectReceivingItemByCode(value);
+    });
+}
+
+async function openBarcodeScanner(mode = "issue") {
+    barcodeScannerMode = mode;
     const scanner = $("barcodeScanner");
     const video = $("barcodeVideo");
     const status = $("scannerStatus");
@@ -1597,10 +1610,18 @@ async function openBarcodeScanner() {
                     const code = result.getText();
                     barcodeScanLocked = true;
 
-                    if (selectIssueItemByCode(code, true)) {
+                    const found = barcodeScannerMode === "receiving"
+                        ? selectReceivingItemByCode(code, true)
+                        : selectIssueItemByCode(code, true);
+
+                    if (found) {
                         if (navigator.vibrate) navigator.vibrate(80);
                         closeBarcodeScanner();
-                        $("outQty").focus();
+
+                        if (barcodeScannerMode === "receiving")
+                            $("inQty")?.focus();
+                        else
+                            $("outQty")?.focus();
                     } else {
                         barcodeScanLocked = false;
                         status.textContent = `Not found: ${code}. Try again.`;
@@ -1644,7 +1665,10 @@ function closeBarcodeScanner() {
 }
 
 if ($("openBarcodeScanner"))
-    $("openBarcodeScanner").addEventListener("click", openBarcodeScanner);
+    $("openBarcodeScanner").addEventListener("click", () => openBarcodeScanner("issue"));
+
+if ($("openReceivingBarcodeScanner"))
+    $("openReceivingBarcodeScanner").addEventListener("click", () => openBarcodeScanner("receiving"));
 
 if ($("closeBarcodeScanner"))
     $("closeBarcodeScanner").addEventListener("click", closeBarcodeScanner);
@@ -2034,11 +2058,6 @@ function renderHistory() {
     const filtered =
         history.filter(
             record => {
-
-                // Stock History shows only real Receiving / Issue transactions.
-                // System activities such as backup exports stay out of this table.
-                if (record.type !== "IN" && record.type !== "OUT")
-                    return false;
 
                 const correctType =
                     type === "All" ||

@@ -1064,21 +1064,33 @@ body.scanner-open {
 }
 
 
-/* BACKUP HISTORY SEPARATION */
-.last-backup-card {
-    margin-top: 18px;
-    padding: 16px;
-    border: 1px solid #dbe3ef;
-    border-radius: 12px;
-    background: #f8fafc;
+/* RECEIVING - BARCODE + EXPIRY LABEL */
+.receiving-barcode-wrap {
+    grid-column: 1;
+    margin: 0 !important;
 }
-.last-backup-label {
-    display: block;
-    margin-bottom: 7px;
-    color: #175cd3;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .12em;
+.receiving-expiry-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    color: #475467;
+    font-size: 12px;
+    font-weight: 600;
 }
-.last-backup-card strong { font-size: 14px; }
-.last-backup-by { margin-top: 6px; color: #667085; font-size: 12px; }
+.receiving-expiry-field input {
+    width: 100%;
+    margin: 0 !important;
+    padding: 11px;
+    border: 1px solid #d7dce5;
+    border-radius: 8px;
+    font: inherit;
+    color: #182230;
+    background: #fff;
+}
+@media (max-width: 800px) {
+    .receiving-barcode-wrap,
+    .receiving-expiry-field {
+        grid-column: 1;
+    }
+}
