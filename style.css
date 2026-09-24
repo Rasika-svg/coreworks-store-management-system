@@ -963,3 +963,102 @@ body.scanner-open {
         grid-column: 1 / -1;
     }
 }
+
+
+/* =========================================
+   COREWORKS - ADMIN BACKUP
+========================================= */
+
+#backup {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.backup-card {
+    background: #fff;
+    border: 1px solid #e5e9f0;
+    border-radius: 18px;
+    padding: 26px;
+    box-shadow: 0 5px 20px rgba(16,24,40,.05);
+}
+
+.backup-card h2 {
+    margin: 5px 0 8px;
+}
+
+.backup-card > p {
+    margin: 0 0 20px;
+    color: #667085;
+    line-height: 1.55;
+}
+
+.backup-kicker {
+    color: #175cd3;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.backup-info {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.backup-info > div {
+    background: #f8fafc;
+    border: 1px solid #e5e9f0;
+    border-radius: 12px;
+    padding: 15px;
+}
+
+.backup-info span {
+    display: block;
+    color: #667085;
+    font-size: 11px;
+    margin-bottom: 5px;
+}
+
+.backup-info strong {
+    font-size: 20px;
+}
+
+.backup-download-btn {
+    width: 100%;
+    border: 0;
+    border-radius: 10px;
+    padding: 13px 18px;
+    background: #1f4fd8;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.backup-download-btn:disabled {
+    opacity: .65;
+    cursor: wait;
+}
+
+.backup-note {
+    display: block;
+    margin-top: 12px;
+    color: #667085;
+    line-height: 1.45;
+}
+
+@media (max-width: 800px) {
+    #backup {
+        padding: 14px;
+    }
+
+    .backup-card {
+        padding: 18px;
+        border-radius: 16px;
+    }
+
+    .backup-info {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+}

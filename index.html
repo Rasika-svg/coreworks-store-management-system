@@ -38,7 +38,7 @@
     <h2>Coreworks</h2>
 </div><button data-page="dashboard">Dashboard</button><button
                 data-page="items">Items</button><button data-page="stockin">Receiving</button><button data-page="stockout">Issue IN</button><button data-page="history">History</button><button
-                data-page="suppliers">Suppliers</button><button data-page="report">Report</button><button id="logout">Sign Out</button><button id="sidebarInstallApp" class="sidebar-install-app" type="button">Install App</button>
+                data-page="suppliers">Suppliers</button><button data-page="report">Report</button><button id="backupMenu" data-page="backup">Backup</button><button id="logout">Sign Out</button><button id="sidebarInstallApp" class="sidebar-install-app" type="button">Install App</button>
         </aside>
         <main>
             <header>
@@ -252,6 +252,23 @@
                         </thead>
                         <tbody id="reportRows"></tbody>
                     </table>
+                </div>
+            </section>
+
+            <section id="backup" class="page hidden">
+                <div class="backup-card">
+                    <span class="backup-kicker">ADMIN BACKUP</span>
+                    <h2>System Data Backup</h2>
+                    <p>Download a copy of the current Coreworks Store data to this device. This does not delete or change Firebase data.</p>
+
+                    <div class="backup-info">
+                        <div><span>Items</span><strong id="backupItemsCount">0</strong></div>
+                        <div><span>Suppliers</span><strong id="backupSuppliersCount">0</strong></div>
+                        <div><span>History Records</span><strong id="backupHistoryCount">0</strong></div>
+                    </div>
+
+                    <button id="exportBackup" class="backup-download-btn" type="button">Export Backup</button>
+                    <small class="backup-note">The JSON backup file is saved only on the phone or computer that presses this button.</small>
                 </div>
             </section>
         </main>

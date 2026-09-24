@@ -62,6 +62,9 @@ function applyPermissions() {
 
     const addItemButton = $("addItem");
     if (addItemButton) addItemButton.classList.toggle("hidden", !isAdmin());
+
+    const backupMenu = $("backupMenu");
+    if (backupMenu) backupMenu.classList.toggle("hidden", !isAdmin());
 }
 
 async function logActivity(action, item = null, reference = "-") {
@@ -289,6 +292,8 @@ async function refresh() {
         renderHistory();
 
         renderStockReport();
+
+        renderBackupSummary();
 
     } catch (error) {
 
@@ -1143,6 +1148,140 @@ function loadSelects() {
 }
 
 
+
+
+/* =========================================================
+   ADMIN SYSTEM BACKUP
+========================================================= */
+
+function renderBackupSummary() {
+    if ($("backupItemsCount"))
+        $("backupItemsCount").textContent = items.length;
+
+    if ($("backupSuppliersCount"))
+        $("backupSuppliersCount").textContent = suppliers.length;
+
+    if ($("backupHistoryCount"))
+        $("backupHistoryCount").textContent = history.length;
+}
+
+function cleanBackupValue(value) {
+    if (value === null || value === undefined) return value;
+
+    if (typeof value?.toDate === "function")
+        return value.toDate().toISOString();
+
+    if (typeof value?.seconds === "number")
+        return new Date(value.seconds * 1000).toISOString();
+
+    if (Array.isArray(value))
+        return value.map(cleanBackupValue);
+
+    if (typeof value === "object") {
+        const output = {};
+        Object.entries(value).forEach(([key, current]) => {
+            output[key] = cleanBackupValue(current);
+        });
+        return output;
+    }
+
+    return value;
+}
+
+async function exportSystemBackup() {
+    if (!isAdmin()) {
+        alert("Admin access is required to export a backup.");
+        return;
+    }
+
+    const button = $("exportBackup");
+    const originalText = button ? button.textContent : "Export Backup";
+
+    try {
+        if (button) {
+            button.disabled = true;
+            button.textContent = "Preparing Backup...";
+        }
+
+        // Read fresh data directly from Firestore at export time.
+        const [
+            backupItems,
+            backupSuppliers,
+            backupStockIn,
+            backupStockOut,
+            backupActivityLogs
+        ] = await Promise.all([
+            getCollection("items"),
+            getCollection("suppliers"),
+            getCollection("stockIn"),
+            getCollection("stockOut"),
+            getCollection("activityLogs")
+        ]);
+
+        const backup = cleanBackupValue({
+            backupInfo: {
+                system: "Coreworks Store Management System",
+                company: "Coreworks Trading (Pvt) Ltd.",
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                exportedBy: user?.email || "-"
+            },
+            items: backupItems,
+            suppliers: backupSuppliers,
+            stockIn: backupStockIn,
+            stockOut: backupStockOut,
+            activityLogs: backupActivityLogs
+        });
+
+        const json = JSON.stringify(backup, null, 2);
+        const blob = new Blob([json], {
+            type: "application/json;charset=utf-8"
+        });
+        const url = URL.createObjectURL(blob);
+
+        const now = new Date();
+        const stamp =
+            now.getFullYear() + "-" +
+            String(now.getMonth() + 1).padStart(2, "0") + "-" +
+            String(now.getDate()).padStart(2, "0") + "_" +
+            String(now.getHours()).padStart(2, "0") + "-" +
+            String(now.getMinutes()).padStart(2, "0");
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Coreworks_Backup_${stamp}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        await logActivity(
+            "SYSTEM_BACKUP_EXPORTED",
+            null,
+            `Backup ${stamp}`
+        );
+
+        alert("Backup downloaded successfully to this device.");
+        await refresh();
+
+    } catch (error) {
+        console.error("Backup export error:", error);
+        alert("Backup could not be created: " + error.message);
+
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+}
+
+if ($("exportBackup"))
+    $("exportBackup").addEventListener(
+        "click",
+        exportSystemBackup
+    );
 
 /* =========================================================
    CURRENT STOCK REPORT / A4 PDF
