@@ -15,6 +15,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 </head>
 
 <body>
@@ -162,8 +163,12 @@
             <section id="stockout" class="page hidden">
                 <div class="card form">
                     <h3>Issue IN</h3>
-                    <form id="outForm"><input id="barcode" placeholder="Scan / enter Item No or Barcode"
-                            required><select id="outItem" required></select><input id="outQty" type="number" step=".001"
+                    <form id="outForm"><div class="barcode-input-wrap">
+                            <input id="barcode" placeholder="Scan / enter Item No or Barcode" required>
+                            <button id="openBarcodeScanner" class="barcode-scan-btn" type="button" aria-label="Scan barcode" title="Scan Barcode">
+                                <span class="scan-corners" aria-hidden="true"></span>
+                            </button>
+                        </div><select id="outItem" required></select><input id="outQty" type="number" step=".001"
                             placeholder="Quantity" required><input id="reason"
                             placeholder="Reason (Production / Sample / Damage)" required><input id="jobNo"
                             placeholder="Job No"><input id="issuedTo" placeholder="Issued To"><button>Save Issue IN</button></form>
@@ -214,6 +219,24 @@
     <div id="modal" class="modal hidden">
         <div class="modalbox"><button id="close">×</button>
             <div id="modalBody"></div>
+        </div>
+    </div>
+    <div id="barcodeScanner" class="barcode-scanner hidden" aria-hidden="true">
+        <div class="scanner-topbar">
+            <button id="closeBarcodeScanner" type="button" class="scanner-back" aria-label="Close scanner">←</button>
+            <strong>Scan Barcode</strong>
+            <span class="scanner-top-spacer"></span>
+        </div>
+        <div class="scanner-camera">
+            <video id="barcodeVideo" playsinline muted></video>
+            <div class="scanner-shade"></div>
+            <div class="scanner-message">Place Barcode inside the frame</div>
+            <div class="scanner-frame">
+                <span class="corner tl"></span><span class="corner tr"></span>
+                <span class="corner bl"></span><span class="corner br"></span>
+                <span class="scanner-line"></span>
+            </div>
+            <div id="scannerStatus" class="scanner-status">Point the camera at a barcode</div>
         </div>
     </div>
     <button id="installApp" class="install-app hidden" type="button" aria-hidden="true">Install App</button>

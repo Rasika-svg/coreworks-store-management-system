@@ -1142,35 +1142,154 @@ function loadSelects() {
 
 
 /* =========================================================
-   BARCODE SEARCH - ISSUE
+   BARCODE SEARCH / CAMERA SCANNER - ISSUE
 ========================================================= */
 
-$("barcode").onchange = () => {
+function selectIssueItemByCode(rawCode, showNotFound = false) {
+    const search = String(rawCode || "").trim().toLowerCase();
 
-    const search =
-        $("barcode")
-            .value
-            .trim()
-            .toLowerCase();
+    if (!search) return false;
 
+    const item = items.find(current =>
+        String(current.itemNo || "").trim().toLowerCase() === search ||
+        String(current.barcode || "").trim().toLowerCase() === search
+    );
 
-    const item =
-        items.find(
-            current =>
-                String(
-                    current.itemNo || ""
-                ).toLowerCase() === search
-                ||
-                String(
-                    current.barcode || ""
-                ).toLowerCase() === search
+    if (item) {
+        $("barcode").value = item.itemNo || rawCode;
+        $("outItem").value = item.id;
+        return true;
+    }
+
+    if (showNotFound)
+        alert(`No item found for barcode / item no: ${rawCode}`);
+
+    return false;
+}
+
+$("barcode").addEventListener("change", () => {
+    selectIssueItemByCode($("barcode").value);
+});
+
+$("barcode").addEventListener("input", () => {
+    const value = $("barcode").value.trim();
+    if (value) selectIssueItemByCode(value);
+});
+
+let barcodeCodeReader = null;
+let barcodeScannerRunning = false;
+let barcodeScanLocked = false;
+
+async function openBarcodeScanner() {
+    const scanner = $("barcodeScanner");
+    const video = $("barcodeVideo");
+    const status = $("scannerStatus");
+
+    if (!scanner || !video) return;
+
+    if (!window.isSecureContext) {
+        alert("Camera scanning needs HTTPS. Open the GitHub Pages HTTPS website and try again.");
+        return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Camera access is not supported in this browser.");
+        return;
+    }
+
+    if (!window.ZXing) {
+        alert("Barcode scanner library did not load. Check the internet connection and refresh the page.");
+        return;
+    }
+
+    scanner.classList.remove("hidden");
+    scanner.setAttribute("aria-hidden", "false");
+    document.body.classList.add("scanner-open");
+    status.textContent = "Starting camera…";
+    barcodeScanLocked = false;
+
+    try {
+        barcodeCodeReader = new ZXing.BrowserMultiFormatReader();
+        barcodeScannerRunning = true;
+
+        const devices = await barcodeCodeReader.listVideoInputDevices();
+        let deviceId;
+
+        if (devices && devices.length) {
+            const rear = devices.find(device =>
+                /back|rear|environment/i.test(device.label || "")
+            );
+            deviceId = (rear || devices[devices.length - 1]).deviceId;
+        }
+
+        status.textContent = "Point the camera at a barcode";
+
+        await barcodeCodeReader.decodeFromVideoDevice(
+            deviceId,
+            video,
+            (result, error) => {
+                if (!barcodeScannerRunning || barcodeScanLocked) return;
+
+                if (result) {
+                    const code = result.getText();
+                    barcodeScanLocked = true;
+
+                    if (selectIssueItemByCode(code, true)) {
+                        if (navigator.vibrate) navigator.vibrate(80);
+                        closeBarcodeScanner();
+                        $("outQty").focus();
+                    } else {
+                        barcodeScanLocked = false;
+                        status.textContent = `Not found: ${code}. Try again.`;
+                    }
+                }
+            }
         );
+    } catch (error) {
+        console.error("Barcode scanner error:", error);
+        closeBarcodeScanner();
 
+        if (error && (error.name === "NotAllowedError" || error.name === "PermissionDeniedError"))
+            alert("Camera permission was blocked. Allow camera access for this site and try again.");
+        else
+            alert("Could not start the camera scanner. Please check camera permission and try again.");
+    }
+}
 
-    if (item)
-        $("outItem").value =
-            item.id;
-};
+function closeBarcodeScanner() {
+    barcodeScannerRunning = false;
+    barcodeScanLocked = false;
+
+    if (barcodeCodeReader) {
+        try { barcodeCodeReader.reset(); } catch (error) { console.warn(error); }
+        barcodeCodeReader = null;
+    }
+
+    const video = $("barcodeVideo");
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
+
+    const scanner = $("barcodeScanner");
+    if (scanner) {
+        scanner.classList.add("hidden");
+        scanner.setAttribute("aria-hidden", "true");
+    }
+
+    document.body.classList.remove("scanner-open");
+}
+
+if ($("openBarcodeScanner"))
+    $("openBarcodeScanner").addEventListener("click", openBarcodeScanner);
+
+if ($("closeBarcodeScanner"))
+    $("closeBarcodeScanner").addEventListener("click", closeBarcodeScanner);
+
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden && barcodeScannerRunning)
+        closeBarcodeScanner();
+});
 
 
 /* =========================================================

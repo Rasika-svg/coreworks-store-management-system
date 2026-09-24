@@ -654,3 +654,193 @@ aside #sidebarInstallApp {
 .modern-dashboard-grid{gap:14px}.modern-dashboard-grid .dashboard-alert{min-height:175px;padding:20px;border-radius:18px;box-shadow:0 5px 20px rgba(16,24,40,.045)}.alert-heading{display:flex;align-items:center;gap:12px;padding-bottom:14px;margin-bottom:10px;border-bottom:1px solid rgba(24,34,48,.08)}.alert-heading .alert-icon{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:12px;background:rgba(255,255,255,.68);font-size:15px;font-weight:800}.alert-heading h3{margin:3px 0 0;font-size:17px}.minimum-alert .alert-kicker{color:#9a6700}.expiry-alert .alert-kicker,.non-moving-alert .alert-kicker{color:#b42318}.one-time-alert .alert-kicker{color:#175cd3}.alert-content p{margin:0!important;padding:9px 10px;border-radius:10px;line-height:1.4;font-size:13px;background:rgba(255,255,255,.42)}.alert-content p+p{margin-top:6px!important}
 @media(max-width:800px){#dashboard{padding:14px}.dashboard-welcome{padding:18px;margin-bottom:14px;border-radius:17px}.dashboard-welcome h1{font-size:21px}.dashboard-welcome p{font-size:11px}.dashboard-brand-mark{width:48px;height:48px;flex-basis:48px;border-radius:14px;font-size:15px}.modern-stats{grid-template-columns:1fr 1fr;gap:10px}.modern-stats>.stat-card{min-height:96px;padding:13px;gap:10px;border-radius:15px}.stat-card .stat-icon{width:38px;height:38px;flex-basis:38px;border-radius:11px;font-size:14px}.stat-copy span{font-size:10px}.modern-stats .stat-copy strong{font-size:21px}.modern-stats>.stock-value-card{grid-column:1/-1;min-height:auto}.modern-dashboard-grid{gap:10px}.modern-dashboard-grid .dashboard-alert{min-height:0;padding:15px;border-radius:16px}.alert-heading{padding-bottom:11px;margin-bottom:8px}.alert-heading .alert-icon{width:36px;height:36px;flex-basis:36px;border-radius:10px;font-size:12px}.alert-heading h3{font-size:15px}.alert-kicker{font-size:8px}.alert-content p{padding:8px;font-size:12px}}
 @media(max-width:380px){.modern-stats{grid-template-columns:1fr}.modern-stats>.stock-value-card{grid-column:auto}.dashboard-brand-mark{display:none}}
+
+
+/* =========================================
+   ISSUE IN - CAMERA BARCODE SCANNER
+========================================= */
+
+.barcode-input-wrap {
+    position: relative;
+    width: 100%;
+    margin: 0 !important;
+}
+
+.form .barcode-input-wrap input {
+    width: 100%;
+    margin: 0;
+    padding-right: 62px;
+}
+
+.form .barcode-input-wrap .barcode-scan-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 38px;
+    padding: 0;
+    margin: 0;
+    grid-column: auto;
+    border-radius: 9px;
+    background: #eaf2ff;
+    color: #1f4fd8;
+    display: grid;
+    place-items: center;
+}
+
+.scan-corners {
+    width: 22px;
+    height: 22px;
+    display: block;
+    background:
+      linear-gradient(currentColor,currentColor) left top/8px 2px no-repeat,
+      linear-gradient(currentColor,currentColor) left top/2px 8px no-repeat,
+      linear-gradient(currentColor,currentColor) right top/8px 2px no-repeat,
+      linear-gradient(currentColor,currentColor) right top/2px 8px no-repeat,
+      linear-gradient(currentColor,currentColor) left bottom/8px 2px no-repeat,
+      linear-gradient(currentColor,currentColor) left bottom/2px 8px no-repeat,
+      linear-gradient(currentColor,currentColor) right bottom/8px 2px no-repeat,
+      linear-gradient(currentColor,currentColor) right bottom/2px 8px no-repeat;
+}
+
+body.scanner-open {
+    overflow: hidden;
+}
+
+.barcode-scanner {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: #000;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+}
+
+.scanner-topbar {
+    height: 70px;
+    flex: 0 0 70px;
+    display: grid;
+    grid-template-columns: 54px 1fr 54px;
+    align-items: center;
+    background: #050505;
+    padding: 0 10px;
+}
+
+.scanner-topbar strong {
+    text-align: center;
+    font-size: 18px;
+}
+
+.scanner-back {
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 38px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.scanner-camera {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #000;
+}
+
+#barcodeVideo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.scanner-shade {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.14);
+    pointer-events: none;
+}
+
+.scanner-message {
+    position: absolute;
+    top: 11%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    width: max-content;
+    max-width: calc(100% - 36px);
+    padding: 12px 22px;
+    border-radius: 22px;
+    background: rgba(0,0,0,.65);
+    text-align: center;
+    font-size: 16px;
+}
+
+.scanner-frame {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    top: 47%;
+    transform: translate(-50%, -50%);
+    width: min(78vw, 520px);
+    height: min(42vw, 230px);
+    min-height: 150px;
+    border: 1px solid rgba(255,255,255,.65);
+}
+
+.scanner-frame .corner {
+    position: absolute;
+    width: 34px;
+    height: 34px;
+    border-color: #fff;
+    border-style: solid;
+}
+
+.scanner-frame .tl { left:-3px; top:-3px; border-width:6px 0 0 6px; }
+.scanner-frame .tr { right:-3px; top:-3px; border-width:6px 6px 0 0; }
+.scanner-frame .bl { left:-3px; bottom:-3px; border-width:0 0 6px 6px; }
+.scanner-frame .br { right:-3px; bottom:-3px; border-width:0 6px 6px 0; }
+
+.scanner-line {
+    position: absolute;
+    left: 4%;
+    right: 4%;
+    top: 50%;
+    height: 2px;
+    background: #2f80ed;
+    box-shadow: 0 0 10px rgba(47,128,237,.9);
+    animation: scannerSweep 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes scannerSweep {
+    from { transform: translateY(-55px); }
+    to   { transform: translateY(55px); }
+}
+
+.scanner-status {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    bottom: 8%;
+    transform: translateX(-50%);
+    width: calc(100% - 40px);
+    text-align: center;
+    font-size: 13px;
+    text-shadow: 0 1px 4px #000;
+}
+
+@media (max-width: 800px) {
+    .form .barcode-input-wrap .barcode-scan-btn {
+        grid-column: auto;
+    }
+
+    .scanner-frame {
+        width: 72vw;
+        height: 38vw;
+        min-height: 135px;
+    }
+}
