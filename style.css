@@ -1062,3 +1062,23 @@ body.scanner-open {
         gap: 8px;
     }
 }
+
+
+/* BACKUP HISTORY SEPARATION */
+.last-backup-card {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid #dbe3ef;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+.last-backup-label {
+    display: block;
+    margin-bottom: 7px;
+    color: #175cd3;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+.last-backup-card strong { font-size: 14px; }
+.last-backup-by { margin-top: 6px; color: #667085; font-size: 12px; }

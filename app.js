@@ -1161,8 +1161,29 @@ function renderBackupSummary() {
     if ($("backupSuppliersCount"))
         $("backupSuppliersCount").textContent = suppliers.length;
 
+    const stockHistory = history.filter(record =>
+        record.type === "IN" || record.type === "OUT"
+    );
+
     if ($("backupHistoryCount"))
-        $("backupHistoryCount").textContent = history.length;
+        $("backupHistoryCount").textContent = stockHistory.length;
+
+    const lastBackup = history
+        .filter(record =>
+            record.type === "ACTIVITY" &&
+            record.action === "SYSTEM_BACKUP_EXPORTED"
+        )
+        .sort((a, b) => ms(b.createdAt) - ms(a.createdAt))[0];
+
+    if ($("lastBackupDate"))
+        $("lastBackupDate").textContent =
+            lastBackup && ms(lastBackup.createdAt)
+                ? new Date(ms(lastBackup.createdAt)).toLocaleString("en-GB")
+                : "No backup record yet";
+
+    if ($("lastBackupBy"))
+        $("lastBackupBy").textContent =
+            lastBackup?.performedBy || "-";
 }
 
 function cleanBackupValue(value) {
@@ -2013,6 +2034,11 @@ function renderHistory() {
     const filtered =
         history.filter(
             record => {
+
+                // Stock History shows only real Receiving / Issue transactions.
+                // System activities such as backup exports stay out of this table.
+                if (record.type !== "IN" && record.type !== "OUT")
+                    return false;
 
                 const correctType =
                     type === "All" ||
