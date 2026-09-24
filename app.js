@@ -345,6 +345,12 @@ function dashboard() {
     const oneTimeNonMoving =
         items.filter(item => {
 
+            const itemCreated = ms(item.createdAt);
+
+            // Item must first be at least 6 months old.
+            if (!itemCreated || now - itemCreated < sixMonths)
+                return false;
+
             const issuesLast6Months =
                 history.filter(
                     record =>
@@ -709,6 +715,8 @@ function getItemStatus(item) {
 
 
     if (
+        itemCreated &&
+        now - itemCreated >= sixMonths &&
         issueLast6Months.length === 1
     ) {
 
