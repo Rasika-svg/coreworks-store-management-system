@@ -487,8 +487,333 @@ function dashboard() {
         "<p>No non-moving items.</p>";
 
     if (isAdmin()) renderStockValueSelector(stockValue);
+
+    renderDashboardCharts({
+        lowStock,
+        stockValue
+    });
 }
 
+
+
+let dashboardChartInstances = {};
+
+function destroyDashboardChart(name) {
+    if (dashboardChartInstances[name]) {
+        dashboardChartInstances[name].destroy();
+        dashboardChartInstances[name] = null;
+    }
+}
+
+function dashboardMonthKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function dashboardMonthLabel(date) {
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit"
+    });
+}
+
+function renderDashboardCharts({ lowStock, stockValue }) {
+    if (typeof Chart === "undefined")
+        return;
+
+    const chartFont = {
+        family: "Segoe UI, Arial, sans-serif"
+    };
+
+    Chart.defaults.font.family = chartFont.family;
+    Chart.defaults.color = "#667085";
+    Chart.defaults.borderColor = "rgba(152, 162, 179, .18)";
+
+    // Last 6 calendar months, including current month.
+    const now = new Date();
+    const months = [];
+
+    for (let offset = 5; offset >= 0; offset--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+        months.push({
+            key: dashboardMonthKey(date),
+            label: dashboardMonthLabel(date),
+            stockIn: 0,
+            issue: 0
+        });
+    }
+
+    const monthMap = new Map(months.map(month => [month.key, month]));
+
+    history.forEach(record => {
+        if (record.type !== "IN" && record.type !== "OUT")
+            return;
+
+        const time = ms(record.createdAt);
+        if (!time)
+            return;
+
+        const date = new Date(time);
+        const bucket = monthMap.get(dashboardMonthKey(date));
+
+        if (!bucket)
+            return;
+
+        const qty = Number(record.quantity || 0);
+
+        if (record.type === "IN")
+            bucket.stockIn += qty;
+        else
+            bucket.issue += qty;
+    });
+
+    destroyDashboardChart("movement");
+    const movementCanvas = $("stockMovementChart");
+
+    if (movementCanvas) {
+        dashboardChartInstances.movement = new Chart(movementCanvas, {
+            type: "bar",
+            data: {
+                labels: months.map(month => month.label),
+                datasets: [
+                    {
+                        label: "Stock IN",
+                        data: months.map(month => month.stockIn),
+                        backgroundColor: "rgba(37, 99, 235, .78)",
+                        borderRadius: 7,
+                        maxBarThickness: 34
+                    },
+                    {
+                        label: "Issue",
+                        data: months.map(month => month.issue),
+                        backgroundColor: "rgba(239, 68, 68, .72)",
+                        borderRadius: 7,
+                        maxBarThickness: 34
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: "index",
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            padding: 18
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: context =>
+                                `${context.dataset.label}: ${Number(context.raw || 0).toLocaleString("en-LK")}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+
+    // Top 5 items by Issue quantity across all recorded stockOut history.
+    const usage = new Map();
+
+    history.forEach(record => {
+        if (record.type !== "OUT")
+            return;
+
+        const key = record.itemNo || record.itemName || "Unknown";
+        const current = usage.get(key) || {
+            itemNo: record.itemNo || "-",
+            itemName: record.itemName || record.itemNo || "Unknown",
+            quantity: 0
+        };
+
+        current.quantity += Number(record.quantity || 0);
+        usage.set(key, current);
+    });
+
+    const topUsed = [...usage.values()]
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 5);
+
+    destroyDashboardChart("topUsed");
+    const topUsedCanvas = $("topUsedChart");
+
+    if (topUsedCanvas) {
+        dashboardChartInstances.topUsed = new Chart(topUsedCanvas, {
+            type: "bar",
+            data: {
+                labels: topUsed.length
+                    ? topUsed.map(item => `${item.itemNo} — ${item.itemName}`)
+                    : ["No Issue Data"],
+                datasets: [{
+                    label: "Issued Qty",
+                    data: topUsed.length
+                        ? topUsed.map(item => item.quantity)
+                        : [0],
+                    backgroundColor: "rgba(124, 58, 237, .72)",
+                    borderRadius: 7,
+                    maxBarThickness: 28
+                }]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: context =>
+                                `Issued Qty: ${Number(context.raw || 0).toLocaleString("en-LK")}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    },
+                    y: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // Low stock vs healthy stock.
+    const lowCount = lowStock.length;
+    const healthyCount = Math.max(items.length - lowCount, 0);
+
+    destroyDashboardChart("lowStock");
+    const lowStockCanvas = $("lowStockChart");
+
+    if (lowStockCanvas) {
+        dashboardChartInstances.lowStock = new Chart(lowStockCanvas, {
+            type: "doughnut",
+            data: {
+                labels: ["Low Stock", "Healthy Stock"],
+                datasets: [{
+                    data: [lowCount, healthyCount],
+                    backgroundColor: [
+                        "rgba(245, 158, 11, .82)",
+                        "rgba(34, 197, 94, .70)"
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "68%",
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            padding: 16
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    if ($("lowStockChartNote")) {
+        $("lowStockChartNote").innerHTML =
+            `<strong>${lowCount}</strong> low-stock item(s) out of <strong>${items.length}</strong> total items.`;
+    }
+
+    // Top 6 items by current stock value. Admin only.
+    const valueCard = document.querySelector(".chart-value-card");
+
+    if (valueCard)
+        valueCard.classList.toggle("hidden", !isAdmin());
+
+    destroyDashboardChart("stockValue");
+
+    if (isAdmin()) {
+        const valueItems = items
+            .map(item => ({
+                label: `${item.itemNo || "-"} — ${item.itemName || "Item"}`,
+                value:
+                    Number(item.stockQty || 0) *
+                    Number(item.buyingPrice || 0)
+            }))
+            .filter(item => item.value > 0)
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 6);
+
+        const valueCanvas = $("stockValueChart");
+
+        if (valueCanvas) {
+            dashboardChartInstances.stockValue = new Chart(valueCanvas, {
+                type: "bar",
+                data: {
+                    labels: valueItems.length
+                        ? valueItems.map(item => item.label)
+                        : ["No Stock Value"],
+                    datasets: [{
+                        label: "Stock Value",
+                        data: valueItems.length
+                            ? valueItems.map(item => item.value)
+                            : [0],
+                        backgroundColor: "rgba(22, 163, 74, .72)",
+                        borderRadius: 7,
+                        maxBarThickness: 28
+                    }]
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: context =>
+                                    money(context.raw)
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value =>
+                                    Number(value).toLocaleString("en-LK")
+                            }
+                        },
+                        y: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        if ($("stockValueChartNote")) {
+            $("stockValueChartNote").innerHTML =
+                `Current total stock value: <strong>${money(stockValue)}</strong>`;
+        }
+    }
+}
 
 function renderStockValueSelector(totalStockValue) {
 
