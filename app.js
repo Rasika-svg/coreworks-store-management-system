@@ -605,6 +605,17 @@ function dashboardMonthLabel(date) {
     });
 }
 
+// Keep Chart.js instances so dashboard refresh can safely redraw charts.
+const dashboardChartInstances = {};
+
+function destroyDashboardChart(name) {
+    const chart = dashboardChartInstances[name];
+    if (chart) {
+        chart.destroy();
+        delete dashboardChartInstances[name];
+    }
+}
+
 function renderDashboardCharts({ lowStock, stockValue }) {
     if (typeof Chart === "undefined")
         return;
