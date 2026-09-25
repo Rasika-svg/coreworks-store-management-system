@@ -131,25 +131,204 @@ function daysUntil(value) {
    LOGIN
 ========================================================= */
 
+// Device biometric / screen-lock gate for an already signed-in Firebase session.
+// WebAuthn keeps biometric data on the device; this app stores only the credential ID.
+const BIO_PREFIX = "coreworks_bio_";
+let appUnlocked = false;
+
+function bytesToBase64Url(bytes) {
+    return btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+}
+
+function base64UrlToBytes(value) {
+    const base64 = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
+    const binary = atob(base64);
+    return Uint8Array.from(binary, char => char.charCodeAt(0));
+}
+
+function randomBytes(length = 32) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return bytes;
+}
+
+function bioKey(email) {
+    return BIO_PREFIX + String(email || "").toLowerCase();
+}
+
+function getSavedBioCredential(email) {
+    return localStorage.getItem(bioKey(email)) || "";
+}
+
+function ensureBiometricLockUi() {
+    let lock = $("biometricLock");
+    if (lock) return lock;
+
+    lock = document.createElement("div");
+    lock.id = "biometricLock";
+    lock.className = "biometric-lock hidden";
+    lock.innerHTML = `
+        <div class="biometric-lock-card">
+            <img src="icons/icon-192.png" alt="Coreworks">
+            <h2>Coreworks Store</h2>
+            <p id="biometricLockText">Verify your identity to open the app.</p>
+            <button id="biometricUnlock" type="button">Unlock with Fingerprint</button>
+            <button id="biometricSignOut" class="biometric-signout" type="button">Sign Out</button>
+            <small id="biometricError"></small>
+        </div>`;
+    document.body.appendChild(lock);
+
+    const style = document.createElement("style");
+    style.textContent = `
+        .biometric-lock{position:fixed;inset:0;z-index:99999;background:linear-gradient(145deg,#0f172a,#111827);display:flex;align-items:center;justify-content:center;padding:22px}
+        .biometric-lock.hidden{display:none!important}
+        .biometric-lock-card{width:min(92vw,380px);background:#fff;border-radius:24px;padding:30px 24px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.38)}
+        .biometric-lock-card img{width:76px;height:76px;border-radius:18px;object-fit:contain;margin-bottom:10px}
+        .biometric-lock-card h2{margin:4px 0 8px;color:#111827}
+        .biometric-lock-card p{margin:0 0 20px;color:#667085;line-height:1.45}
+        .biometric-lock-card button{width:100%;border:0;border-radius:12px;padding:13px 16px;font-weight:700;cursor:pointer;background:#111827;color:#fff;margin-top:8px}
+        .biometric-lock-card .biometric-signout{background:#eef2f6;color:#344054}
+        #biometricError{display:block;color:#b42318;min-height:20px;margin-top:12px;line-height:1.35}
+    `;
+    document.head.appendChild(style);
+    return lock;
+}
+
+function hideBiometricLock() {
+    const lock = $("biometricLock");
+    if (lock) lock.classList.add("hidden");
+}
+
+async function finishAppUnlock(currentUser) {
+    appUnlocked = true;
+    hideBiometricLock();
+    $("loginView").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    $("user").textContent = currentUser.email;
+    applyPermissions();
+    await refresh();
+}
+
+async function setupBiometric(currentUser) {
+    const errorBox = $("biometricError");
+    if (errorBox) errorBox.textContent = "";
+
+    try {
+        if (!window.PublicKeyCredential || !navigator.credentials) {
+            throw new Error("Fingerprint / device authentication is not supported on this browser.");
+        }
+
+        const email = String(currentUser.email || "Coreworks User");
+        let userHandle = localStorage.getItem(bioKey(email) + "_user");
+        if (!userHandle) {
+            userHandle = bytesToBase64Url(randomBytes(32));
+            localStorage.setItem(bioKey(email) + "_user", userHandle);
+        }
+
+        const credential = await navigator.credentials.create({
+            publicKey: {
+                challenge: randomBytes(32),
+                rp: { name: "Coreworks Store" },
+                user: {
+                    id: base64UrlToBytes(userHandle),
+                    name: email,
+                    displayName: email
+                },
+                pubKeyCredParams: [
+                    { type: "public-key", alg: -7 },
+                    { type: "public-key", alg: -257 }
+                ],
+                authenticatorSelection: {
+                    authenticatorAttachment: "platform",
+                    residentKey: "preferred",
+                    userVerification: "required"
+                },
+                timeout: 60000,
+                attestation: "none"
+            }
+        });
+
+        localStorage.setItem(bioKey(email), bytesToBase64Url(new Uint8Array(credential.rawId)));
+        await finishAppUnlock(currentUser);
+    } catch (error) {
+        console.error(error);
+        if (errorBox) errorBox.textContent = error.name === "NotAllowedError"
+            ? "Fingerprint setup was cancelled. Tap the button and try again."
+            : error.message;
+    }
+}
+
+async function unlockWithBiometric(currentUser) {
+    const errorBox = $("biometricError");
+    if (errorBox) errorBox.textContent = "";
+
+    try {
+        const credentialId = getSavedBioCredential(currentUser.email);
+        if (!credentialId) return setupBiometric(currentUser);
+
+        await navigator.credentials.get({
+            publicKey: {
+                challenge: randomBytes(32),
+                allowCredentials: [{
+                    type: "public-key",
+                    id: base64UrlToBytes(credentialId),
+                    transports: ["internal"]
+                }],
+                userVerification: "required",
+                timeout: 60000
+            }
+        });
+
+        await finishAppUnlock(currentUser);
+    } catch (error) {
+        console.error(error);
+        if (errorBox) errorBox.textContent = error.name === "NotAllowedError"
+            ? "Fingerprint verification was cancelled or failed. Please try again."
+            : "Unable to verify this device. Sign out and sign in again if needed.";
+    }
+}
+
+async function showBiometricGate(currentUser) {
+    appUnlocked = false;
+    $("loginView").classList.add("hidden");
+    $("app").classList.add("hidden");
+
+    const lock = ensureBiometricLockUi();
+    lock.classList.remove("hidden");
+
+    const saved = getSavedBioCredential(currentUser.email);
+    $("biometricLockText").textContent = saved
+        ? "Use your fingerprint, face or phone screen lock to open the app."
+        : "First-time setup: enable fingerprint / device lock for this phone.";
+    $("biometricUnlock").textContent = saved
+        ? "Unlock with Fingerprint"
+        : "Enable Fingerprint Lock";
+
+    $("biometricUnlock").onclick = () => saved
+        ? unlockWithBiometric(currentUser)
+        : setupBiometric(currentUser);
+
+    $("biometricSignOut").onclick = async () => {
+        hideBiometricLock();
+        await signOut(auth);
+    };
+}
+
 onAuthStateChanged(
     auth,
     async currentUser => {
-
         user = currentUser;
 
         if (currentUser) {
-
-            $("loginView").classList.add("hidden");
-            $("app").classList.remove("hidden");
-
-            $("user").textContent =
-                currentUser.email;
-
-            applyPermissions();
-            await refresh();
-
+            // Firebase may remember the login, but the app remains hidden until
+            // the phone verifies the user locally.
+            await showBiometricGate(currentUser);
         } else {
-
+            appUnlocked = false;
+            hideBiometricLock();
             $("app").classList.add("hidden");
             $("loginView").classList.remove("hidden");
         }
@@ -159,29 +338,26 @@ onAuthStateChanged(
 
 $("loginForm").onsubmit =
     async event => {
-
         event.preventDefault();
-
         $("error").textContent = "";
 
         try {
-
             await signInWithEmailAndPassword(
                 auth,
                 $("email").value,
                 $("password").value
             );
-
         } catch (error) {
-
-            $("error").textContent =
-                error.message;
+            $("error").textContent = error.message;
         }
     };
 
 
 $("logout").onclick =
-    () => signOut(auth);
+    () => {
+        appUnlocked = false;
+        return signOut(auth);
+    };
 
 
 $("refresh").onclick =
