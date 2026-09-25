@@ -136,6 +136,11 @@ function daysUntil(value) {
 const BIO_PREFIX = "coreworks_bio_";
 let appUnlocked = false;
 
+// Fingerprint gate is for phones/tablets only. Desktop/PC uses the remembered Firebase login.
+function isMobileDevice() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
 function bytesToBase64Url(bytes) {
     return btoa(String.fromCharCode(...bytes))
         .replace(/\+/g, "-")
@@ -176,6 +181,7 @@ function ensureBiometricLockUi() {
             <h2>Welcome To Coreworks ERP</h2>
             <p id="biometricLockText">Secure Inventory Management System</p>
             <button id="biometricUnlock" type="button">Unlock with Fingerprint</button>
+            <button id="biometricSignOut" type="button" class="biometric-signout">Sign Out</button>
             <small id="biometricError"></small>
         </div>`;
     document.body.appendChild(lock);
@@ -189,6 +195,7 @@ function ensureBiometricLockUi() {
         .biometric-lock-card h2{margin:4px 0 8px;color:#111827}
         .biometric-lock-card p{margin:0 0 20px;color:#667085;line-height:1.45}
         .biometric-lock-card button{width:100%;border:0;border-radius:12px;padding:13px 16px;font-weight:700;cursor:pointer;background:#111827;color:#fff;margin-top:8px}
+        .biometric-lock-card .biometric-signout{background:#eef2f7;color:#344054}
         #biometricError{display:block;color:#b42318;min-height:20px;margin-top:12px;line-height:1.35}
     `;
     document.head.appendChild(style);
@@ -309,6 +316,12 @@ async function showBiometricGate(currentUser) {
         ? unlockWithBiometric(currentUser)
         : setupBiometric(currentUser);
 
+    const biometricSignOut = $("biometricSignOut");
+    if (biometricSignOut) biometricSignOut.onclick = () => {
+        appUnlocked = false;
+        return signOut(auth);
+    };
+
     // On returning users, request device verification automatically.
     // Some browsers may require a user gesture; the Unlock button remains as fallback.
     if (saved) {
@@ -322,9 +335,13 @@ onAuthStateChanged(
         user = currentUser;
 
         if (currentUser) {
-            // Firebase may remember the login, but the app remains hidden until
-            // the phone verifies the user locally.
-            await showBiometricGate(currentUser);
+            // Phones/tablets use the fingerprint/device-lock gate.
+            // Desktop/PC skips biometric setup and opens the remembered Firebase session directly.
+            if (isMobileDevice()) {
+                await showBiometricGate(currentUser);
+            } else {
+                await finishAppUnlock(currentUser);
+            }
         } else {
             appUnlocked = false;
             hideBiometricLock();
