@@ -173,10 +173,9 @@ function ensureBiometricLockUi() {
     lock.innerHTML = `
         <div class="biometric-lock-card">
             <img src="icons/icon-192.png" alt="Coreworks">
-            <h2>Coreworks Store</h2>
-            <p id="biometricLockText">Verify your identity to open the app.</p>
+            <h2>Welcome To Coreworks ERP</h2>
+            <p id="biometricLockText">Secure Inventory Management System</p>
             <button id="biometricUnlock" type="button">Unlock with Fingerprint</button>
-            <button id="biometricSignOut" class="biometric-signout" type="button">Sign Out</button>
             <small id="biometricError"></small>
         </div>`;
     document.body.appendChild(lock);
@@ -190,7 +189,6 @@ function ensureBiometricLockUi() {
         .biometric-lock-card h2{margin:4px 0 8px;color:#111827}
         .biometric-lock-card p{margin:0 0 20px;color:#667085;line-height:1.45}
         .biometric-lock-card button{width:100%;border:0;border-radius:12px;padding:13px 16px;font-weight:700;cursor:pointer;background:#111827;color:#fff;margin-top:8px}
-        .biometric-lock-card .biometric-signout{background:#eef2f6;color:#344054}
         #biometricError{display:block;color:#b42318;min-height:20px;margin-top:12px;line-height:1.35}
     `;
     document.head.appendChild(style);
@@ -231,7 +229,7 @@ async function setupBiometric(currentUser) {
         const credential = await navigator.credentials.create({
             publicKey: {
                 challenge: randomBytes(32),
-                rp: { name: "Coreworks Store" },
+                rp: { name: "Coreworks ERP System" },
                 user: {
                     id: base64UrlToBytes(userHandle),
                     name: email,
@@ -301,7 +299,7 @@ async function showBiometricGate(currentUser) {
 
     const saved = getSavedBioCredential(currentUser.email);
     $("biometricLockText").textContent = saved
-        ? "Use your fingerprint, face or phone screen lock to open the app."
+        ? "Secure Inventory Management System"
         : "First-time setup: enable fingerprint / device lock for this phone.";
     $("biometricUnlock").textContent = saved
         ? "Unlock with Fingerprint"
@@ -311,10 +309,11 @@ async function showBiometricGate(currentUser) {
         ? unlockWithBiometric(currentUser)
         : setupBiometric(currentUser);
 
-    $("biometricSignOut").onclick = async () => {
-        hideBiometricLock();
-        await signOut(auth);
-    };
+    // On returning users, request device verification automatically.
+    // Some browsers may require a user gesture; the Unlock button remains as fallback.
+    if (saved) {
+        setTimeout(() => unlockWithBiometric(currentUser), 350);
+    }
 }
 
 onAuthStateChanged(
