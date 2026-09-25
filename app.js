@@ -555,8 +555,17 @@ function renderPeriodStockValues(){
          * Balance = Added - Issue, which reconciles to FIFO Current Stock Value
          * when the system started with these recorded batches.
          */
-        const allStockIn=history.filter(r=>r.type==="IN");
-        const allStockOut=history.filter(r=>r.type==="OUT");
+        // Only transactions created inside the selected date range.
+        const allStockIn=history.filter(r=>
+            r.type === "IN" &&
+            ms(r.createdAt) >= start &&
+            ms(r.createdAt) <= end
+        );
+        const allStockOut=history.filter(r=>
+            r.type === "OUT" &&
+            ms(r.createdAt) >= start &&
+            ms(r.createdAt) <= end
+        );
 
         const addedValue=allStockIn.reduce(
             (t,r)=>t+Number(r.quantity||r.receivedQty||0)*Number(r.buyingPrice||0),
