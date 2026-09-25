@@ -321,7 +321,7 @@ function dashboard() {
                 Number(item.minimumQty || 0)
         );
 
-    // Dashboard warning is specifically 7 days.
+    // Dashboard warning is specifically 30 days.
     // Already expired items are also kept in this warning list until their
     // expired stock is removed.
     const expiring =
@@ -338,7 +338,7 @@ function dashboard() {
 
             return (
                 days !== null &&
-                days <= 7
+                days <= 30
             );
         });
 
