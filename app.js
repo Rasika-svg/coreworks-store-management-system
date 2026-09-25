@@ -525,15 +525,73 @@ function dateInputValue(date){return `${date.getFullYear()}-${String(date.getMon
 function parseLocalDateStart(value){if(!value)return 0;const [y,m,d]=value.split("-").map(Number);return new Date(y,m-1,d,0,0,0,0).getTime();}
 function parseLocalDateEnd(value){if(!value)return 0;const [y,m,d]=value.split("-").map(Number);return new Date(y,m-1,d,23,59,59,999).getTime();}
 function issueFifoCost(record){if(Array.isArray(record.fifoAllocations)&&record.fifoAllocations.length)return record.fifoAllocations.reduce((t,a)=>t+Number(a.quantity||0)*Number(a.buyingPrice||0),0);const item=items.find(x=>x.itemNo===record.itemNo);return Number(record.quantity||0)*Number(item?.buyingPrice||record.buyingPrice||0);}
-function renderPeriodStockValues(){const from=$("periodValueFrom"),to=$("periodValueTo");if(!from||!to)return;if(!from.value||!to.value){const today=new Date();from.value=dateInputValue(new Date(today.getFullYear(),today.getMonth(),1));to.value=dateInputValue(today);}const calculate=()=>{const start=parseLocalDateStart(from.value),end=parseLocalDateEnd(to.value);if(!start||!end)return;if(start>end){$("periodReceivingValue").textContent="Invalid Date Range";$("periodIssueValue").textContent="-";$("periodBalanceValue").textContent="-";$("periodValueRangeText").textContent="From Date must be before or equal to To Date.";return;}const records=history.filter(r=>(r.type==="IN"||r.type==="OUT")&&ms(r.createdAt)>=start&&ms(r.createdAt)<=end);const receiving=records.filter(r=>r.type==="IN").reduce((t,r)=>t+Number(r.quantity||r.receivedQty||0)*Number(r.buyingPrice||0),0);const issue=records.filter(r=>r.type==="OUT").reduce((t,r)=>t+issueFifoCost(r),0);const balance=receiving-issue;$("periodReceivingValue").textContent=money(receiving);$("periodIssueValue").textContent=money(issue);$("periodBalanceValue").textContent=money(balance);$("periodBalanceValue").classList.toggle("negative-period-balance",balance<0);const f=v=>{const [y,m,d]=v.split("-");return `${d}/${m}/${y}`;};$("periodValueRangeText").innerHTML=`Period: <b>${f(from.value)}</b> to <b>${f(to.value)}</b>`;};from.onchange=calculate;to.onchange=calculate;const btn=$("periodValueThisMonth");if(btn)btn.onclick=()=>{const today=new Date();from.value=dateInputValue(new Date(today.getFullYear(),today.getMonth(),1));to.value=dateInputValue(today);calculate();};calculate();}
+function renderPeriodStockValues(){
+    const from=$("periodValueFrom"),to=$("periodValueTo");
+    if(!from||!to)return;
 
-let dashboardChartInstances = {};
-
-function destroyDashboardChart(name) {
-    if (dashboardChartInstances[name]) {
-        dashboardChartInstances[name].destroy();
-        dashboardChartInstances[name] = null;
+    if(!from.value||!to.value){
+        const today=new Date();
+        from.value=dateInputValue(new Date(today.getFullYear(),today.getMonth(),1));
+        to.value=dateInputValue(today);
     }
+
+    const calculate=()=>{
+        const start=parseLocalDateStart(from.value),end=parseLocalDateEnd(to.value);
+        if(!start||!end)return;
+
+        if(start>end){
+            $("periodReceivingValue").textContent="Invalid Date Range";
+            $("periodIssueValue").textContent="-";
+            $("periodBalanceValue").textContent="-";
+            $("periodValueRangeText").textContent="From Date must be before or equal to To Date.";
+            return;
+        }
+
+        /*
+         * FIRST-MONTH / FULL LEDGER VALUATION
+         * Total Added Stock Value = every stockIn batch/invoice in the system,
+         * including the opening batch created when an item is first added.
+         * Total Issue IN Value = every FIFO issue cost in the system.
+         * Balance = Added - Issue, which reconciles to FIFO Current Stock Value
+         * when the system started with these recorded batches.
+         */
+        const allStockIn=history.filter(r=>r.type==="IN");
+        const allStockOut=history.filter(r=>r.type==="OUT");
+
+        const addedValue=allStockIn.reduce(
+            (t,r)=>t+Number(r.quantity||r.receivedQty||0)*Number(r.buyingPrice||0),
+            0
+        );
+
+        const issueValue=allStockOut.reduce(
+            (t,r)=>t+issueFifoCost(r),
+            0
+        );
+
+        const balance=addedValue-issueValue;
+
+        $("periodReceivingValue").textContent=money(addedValue);
+        $("periodIssueValue").textContent=money(issueValue);
+        $("periodBalanceValue").textContent=money(balance);
+        $("periodBalanceValue").classList.toggle("negative-period-balance",balance<0);
+
+        const f=v=>{const [y,m,d]=v.split("-");return `${d}/${m}/${y}`;};
+        $("periodValueRangeText").innerHTML=
+            `All recorded stock additions & issues · Selected view: <b>${f(from.value)}</b> to <b>${f(to.value)}</b>`;
+    };
+
+    from.onchange=calculate;
+    to.onchange=calculate;
+
+    const btn=$("periodValueThisMonth");
+    if(btn)btn.onclick=()=>{
+        const today=new Date();
+        from.value=dateInputValue(new Date(today.getFullYear(),today.getMonth(),1));
+        to.value=dateInputValue(today);
+        calculate();
+    };
+
+    calculate();
 }
 
 function dashboardMonthKey(date) {
