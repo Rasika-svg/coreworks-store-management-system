@@ -141,6 +141,13 @@ function isMobileDevice() {
     return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+// Native Android WebView uses Android's own biometric lock.
+// Skip the website/WebAuthn fingerprint screen only inside the Android app.
+function isNativeAndroidWebView() {
+    return /Android/i.test(navigator.userAgent) &&
+           (/; wv\)/i.test(navigator.userAgent) || /Version\/4\.0/i.test(navigator.userAgent));
+}
+
 function bytesToBase64Url(bytes) {
     return btoa(String.fromCharCode(...bytes))
         .replace(/\+/g, "-")
@@ -337,7 +344,7 @@ onAuthStateChanged(
         if (currentUser) {
             // Phones/tablets use the fingerprint/device-lock gate.
             // Desktop/PC skips biometric setup and opens the remembered Firebase session directly.
-            if (isMobileDevice()) {
+            if (isMobileDevice() && !isNativeAndroidWebView()) {
                 await showBiometricGate(currentUser);
             } else {
                 await finishAppUnlock(currentUser);
