@@ -387,14 +387,9 @@ function dashboard() {
             return movementsLast12Months.length === 0;
         });
 
-    const stockValue =
-        items.reduce(
-            (total, item) =>
-                total +
-                Number(item.stockQty || 0) *
-                Number(item.buyingPrice || 0),
-            0
-        );
+    // Current stock value must use the actual remaining FIFO batch cost.
+    // This keeps Current Stock Value consistent with Receiving - FIFO Issue Value.
+    const stockValue = getCurrentStockValue();
 
     $("nItems").textContent =
         items.length;
@@ -497,6 +492,34 @@ function dashboard() {
 
 
 
+
+function getItemCurrentStockValue(item) {
+    const batches = history.filter(record =>
+        record.type === "IN" &&
+        record.itemNo === item.itemNo &&
+        Number(record.remainingQty ?? record.quantity ?? 0) > 0
+    );
+
+    if (batches.length) {
+        return batches.reduce(
+            (total, batch) =>
+                total +
+                Number(batch.remainingQty ?? batch.quantity ?? 0) *
+                Number(batch.buyingPrice || 0),
+            0
+        );
+    }
+
+    // Compatibility fallback for old stock created before batch tracking.
+    return Number(item.stockQty || 0) * Number(item.buyingPrice || 0);
+}
+
+function getCurrentStockValue() {
+    return items.reduce(
+        (total, item) => total + getItemCurrentStockValue(item),
+        0
+    );
+}
 
 function dateInputValue(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;}
 function parseLocalDateStart(value){if(!value)return 0;const [y,m,d]=value.split("-").map(Number);return new Date(y,m-1,d,0,0,0,0).getTime();}
@@ -760,9 +783,7 @@ function renderDashboardCharts({ lowStock, stockValue }) {
         const valueItems = items
             .map(item => ({
                 label: `${item.itemNo || "-"} — ${item.itemName || "Item"}`,
-                value:
-                    Number(item.stockQty || 0) *
-                    Number(item.buyingPrice || 0)
+                value: getItemCurrentStockValue(item)
             }))
             .filter(item => item.value > 0)
             .sort((a, b) => b.value - a.value)
@@ -884,18 +905,15 @@ function renderStockValueSelector(totalStockValue) {
         if (!item)
             return;
 
-        const value =
-            Number(item.stockQty || 0) *
-            Number(item.buyingPrice || 0);
+        const value = getItemCurrentStockValue(item);
 
         $("nVal").textContent =
             money(value);
 
         $("selectedStockValue").innerHTML =
             `${esc(item.itemNo)} — ${esc(item.itemName)}<br>` +
-            `Stock: <b>${Number(item.stockQty || 0)}</b> × ` +
-            `Buying: <b>${money(item.buyingPrice)}</b><br>` +
-            `Item Stock Value: <b>${money(value)}</b>`;
+            `Current Stock: <b>${Number(item.stockQty || 0)}</b><br>` +
+            `FIFO Remaining Batch Value: <b>${money(value)}</b>`;
     };
 
     select.onchange =
