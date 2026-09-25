@@ -3273,6 +3273,12 @@ window.itemBarcode =
                 Print Barcode
             </button>
 
+            <button
+                onclick="window.downloadBarcodeJpg('${item.id}')"
+            >
+                Download JPG
+            </button>
+
         `);
 
 
@@ -3286,6 +3292,81 @@ window.itemBarcode =
             }
         );
     };
+
+
+window.downloadBarcodeJpg = id => {
+
+    const item = items.find(current => current.id === id);
+    const svg = document.getElementById("bc");
+
+    if (!item || !svg) {
+        alert("Barcode is not available.");
+        return;
+    }
+
+    try {
+        const svgCopy = svg.cloneNode(true);
+        const box = svg.getBoundingClientRect();
+        const width = Math.max(Math.ceil(box.width || Number(svg.getAttribute("width")) || 320), 1);
+        const height = Math.max(Math.ceil(box.height || Number(svg.getAttribute("height")) || 140), 1);
+
+        svgCopy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        svgCopy.setAttribute("width", width);
+        svgCopy.setAttribute("height", height);
+
+        const svgText = new XMLSerializer().serializeToString(svgCopy);
+        const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        const image = new Image();
+
+        image.onload = () => {
+            const scale = 3;
+            const padding = 30;
+            const canvas = document.createElement("canvas");
+            canvas.width = (width + padding * 2) * scale;
+            canvas.height = (height + padding * 2) * scale;
+
+            const ctx = canvas.getContext("2d");
+            ctx.scale(scale, scale);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width + padding * 2, height + padding * 2);
+            ctx.drawImage(image, padding, padding, width, height);
+
+            canvas.toBlob(blob => {
+                if (!blob) {
+                    URL.revokeObjectURL(svgUrl);
+                    alert("Barcode JPG could not be created.");
+                    return;
+                }
+
+                const jpgUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                const safeItemNo = String(item.itemNo || "Barcode")
+                    .replace(/[^a-z0-9_-]+/gi, "_");
+
+                link.href = jpgUrl;
+                link.download = `${safeItemNo}_Barcode.jpg`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+
+                setTimeout(() => URL.revokeObjectURL(jpgUrl), 1000);
+                URL.revokeObjectURL(svgUrl);
+            }, "image/jpeg", 0.95);
+        };
+
+        image.onerror = () => {
+            URL.revokeObjectURL(svgUrl);
+            alert("Barcode JPG could not be created.");
+        };
+
+        image.src = svgUrl;
+
+    } catch (error) {
+        console.error("Barcode JPG download error:", error);
+        alert("Barcode JPG could not be created: " + error.message);
+    }
+};
 
 
 /* =========================================================
