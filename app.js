@@ -3322,15 +3322,61 @@ window.downloadBarcodeJpg = id => {
         image.onload = () => {
             const scale = 3;
             const padding = 30;
+            const titleGap = 18;
+            const titleFont = 22;
+            const maxTitleWidth = width + padding * 2;
+            const itemName = String(item.itemName || "").trim();
+
+            // Measure and wrap long item names so they stay inside the JPG.
+            const measureCanvas = document.createElement("canvas");
+            const measureCtx = measureCanvas.getContext("2d");
+            measureCtx.font = `600 ${titleFont}px Arial, sans-serif`;
+
+            const words = itemName.split(/\s+/).filter(Boolean);
+            const titleLines = [];
+            let line = "";
+
+            words.forEach(word => {
+                const testLine = line ? `${line} ${word}` : word;
+                if (measureCtx.measureText(testLine).width <= maxTitleWidth - padding * 2 || !line) {
+                    line = testLine;
+                } else {
+                    titleLines.push(line);
+                    line = word;
+                }
+            });
+            if (line) titleLines.push(line);
+            if (!titleLines.length) titleLines.push("Item");
+
+            const titleHeight = titleLines.length * (titleFont + 7);
+            const canvasWidth = width + padding * 2;
+            const canvasHeight = padding + titleHeight + titleGap + height + padding;
+
             const canvas = document.createElement("canvas");
-            canvas.width = (width + padding * 2) * scale;
-            canvas.height = (height + padding * 2) * scale;
+            canvas.width = canvasWidth * scale;
+            canvas.height = canvasHeight * scale;
 
             const ctx = canvas.getContext("2d");
             ctx.scale(scale, scale);
             ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, width + padding * 2, height + padding * 2);
-            ctx.drawImage(image, padding, padding, width, height);
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+            // Item name above the barcode.
+            ctx.fillStyle = "#111111";
+            ctx.font = `600 ${titleFont}px Arial, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            titleLines.forEach((titleLine, index) => {
+                ctx.fillText(
+                    titleLine,
+                    canvasWidth / 2,
+                    padding + index * (titleFont + 7)
+                );
+            });
+
+            // Barcode SVG already contains the Item No below the bars.
+            const barcodeY = padding + titleHeight + titleGap;
+            ctx.drawImage(image, padding, barcodeY, width, height);
 
             canvas.toBlob(blob => {
                 if (!blob) {
