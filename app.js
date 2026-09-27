@@ -2946,12 +2946,15 @@ function itemModal(item = null) {
 
                 <input
                     id="iNo"
+                    list="itemNoSuggestions"
+                    autocomplete="off"
                     placeholder="Example: INK001"
                     required
                     value="${esc(
                         item?.itemNo || ""
                     )}"
                 >
+                <datalist id="itemNoSuggestions"></datalist>
 
             </label>
 
@@ -3204,6 +3207,28 @@ function itemModal(item = null) {
 
     $("iSupplier").value =
         item?.supplierName || "";
+
+
+    // Item No suggestions: show existing matching numbers in natural number order.
+    const itemNoSuggestions = $("itemNoSuggestions");
+    const sortedItemNos = items
+        .map(current => String(current.itemNo || "").trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+    itemNoSuggestions.innerHTML = sortedItemNos
+        .map(number => `<option value="${esc(number)}"></option>`)
+        .join("");
+
+    // New item: automatically keep Barcode the same as Item No while typing.
+    if (!item) {
+        $("iNo").addEventListener("input", () => {
+            $("iBar").value = $("iNo").value.trim();
+        });
+
+        // Also populate Barcode immediately if Item No already has a value.
+        $("iBar").value = $("iNo").value.trim();
+    }
 
 
     $("itemForm").onsubmit =
