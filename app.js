@@ -1266,7 +1266,7 @@ function getItemStatus(item) {
 
         return {
             key: "minimum",
-            label: "Minimum Stock",
+            label: "Reorder Level",
             className: "row-minimum"
         };
     }
@@ -3069,7 +3069,7 @@ function itemModal(item = null) {
 
             <label>
 
-                Minimum Quantity
+                Reorder Level
 
                 <input
                     id="iMin"
@@ -3803,7 +3803,7 @@ window.moreItem =
                 </p>
 
                 <p>
-                    <b>Minimum:</b>
+                    <b>Reorder Level:</b>
                     ${item.minimumQty || 0}
                 </p>
 
