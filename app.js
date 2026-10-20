@@ -6,6 +6,8 @@ import {
     signOut
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
+
 import {
     getFirestore,
     collection,
@@ -34,6 +36,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 
 /* =========================================================
@@ -3183,6 +3186,26 @@ function itemModal(item = null) {
             </label>
 
 
+            <div class="full item-documents-panel">
+                <h4>Item Documents — MSDS / TDS / Catalog</h4>
+                <p class="document-help">Upload a JPG, PNG, WebP or PDF (maximum 10 MB each). Optional.</p>
+                ${["MSDS", "TDS", "Catalog"].map(type => `
+                    <div class="document-upload-row">
+                        <strong>${type}</strong>
+                        <div class="document-upload-actions">
+                            <label class="document-file-action">📷 Take Photo
+                                <input type="file" id="docCamera${type}" accept="image/*" capture="environment">
+                            </label>
+                            <label class="document-file-action">⬆ Upload Photo / PDF
+                                <input type="file" id="docFile${type}" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf">
+                            </label>
+                        </div>
+                        <small class="document-selected" id="docSelected${type}">${item?.documents?.[type] ? `Saved: ${esc(item.documents[type].name || type)}` : "No document selected"}</small>
+                    </div>
+                `).join("")}
+                <small id="documentUploadStatus" role="status"></small>
+            </div>
+
             <button
                 class="full"
                 type="submit"
@@ -3230,6 +3253,26 @@ function itemModal(item = null) {
         $("iBar").value = $("iNo").value.trim();
     }
 
+
+    // Remember a selected file per type. Camera and Gallery target the same slot.
+    const selectedDocuments = {};
+    for (const type of ["MSDS", "TDS", "Catalog"]) {
+        const camera = $("docCamera" + type);
+        const filePicker = $("docFile" + type);
+        for (const input of [camera, filePicker]) {
+            input.addEventListener("change", () => {
+                const file = input.files?.[0];
+                if (!file) return;
+                if (!isAllowedItemDocument(file)) {
+                    alert("Only JPG, PNG, WebP or PDF files up to 10 MB are allowed.");
+                    input.value = "";
+                    return;
+                }
+                selectedDocuments[type] = file;
+                $("docSelected" + type).textContent = "Selected: " + file.name;
+            });
+        }
+    }
 
     $("itemForm").onsubmit =
         async event => {
@@ -3339,6 +3382,8 @@ function itemModal(item = null) {
                     ||
                     itemNo,
 
+                documents: item?.documents || {},
+
                 imageUrl:
                     $("iImg")
                         .value
@@ -3423,6 +3468,41 @@ function itemModal(item = null) {
                 }
             }
 
+
+            // Upload after item creation so paths are tied to the saved item.
+            // A document upload failure does not remove the saved inventory item.
+            const uploadTypes = Object.keys(selectedDocuments);
+            if (uploadTypes.length) {
+                const itemId = item?.id || itemNo;
+                const documentMap = { ...(item?.documents || {}) };
+                const uploadErrors = [];
+                const saveButton = $("itemForm").querySelector('button[type="submit"]');
+                saveButton.disabled = true;
+                for (const type of uploadTypes) {
+                    $("documentUploadStatus").textContent = `Uploading ${type}...`;
+                    try {
+                        const file = selectedDocuments[type];
+                        const ext = file.type === "application/pdf" ? "pdf" : (file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg");
+                        const path = `items/${itemId}/${type}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+                        const newRef = storageRef(storage, path);
+                        await uploadBytes(newRef, file, { contentType: file.type });
+                        const previous = documentMap[type];
+                        documentMap[type] = { path, name: file.name, contentType: file.type, uploadedAt: new Date().toISOString() };
+                        await updateDoc(doc(db, "items", itemId), { documents: documentMap });
+                        // After metadata is committed, remove the replaced file, if any.
+                        if (previous?.path && previous.path !== path) {
+                            try { await deleteObject(storageRef(storage, previous.path)); }
+                            catch (cleanupError) { console.warn("Old document cleanup failed", cleanupError); }
+                        }
+                    } catch (error) {
+                        console.error("Document upload failed", type, error);
+                        uploadErrors.push(`${type}: ${error.code || error.message}`);
+                    }
+                }
+                if (uploadErrors.length) {
+                    alert("Item saved, but some documents did not upload:\n" + uploadErrors.join("\n") + "\nYou can edit the item and retry.");
+                }
+            }
 
             await logActivity(
                 item ? "Item Edited" : "Item Added",
@@ -3640,6 +3720,37 @@ window.downloadBarcodeJpg = id => {
 
 
 /* =========================================================
+   CLOUD DOCUMENTS
+========================================================= */
+function isAllowedItemDocument(file) {
+    return file && file.size > 0 && file.size <= 10 * 1024 * 1024 &&
+        ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type);
+}
+
+window.openItemDocument = async (itemId, type) => {
+    const item = items.find(current => current.id === itemId);
+    const path = item?.documents?.[type]?.path;
+    if (!path || !["MSDS", "TDS", "Catalog"].includes(type)) return;
+    try {
+        // The SDK checks Storage Rules to obtain the URL. Do not share the resulting token URL.
+        const url = await getDownloadURL(storageRef(storage, path));
+        const opened = window.open(url, "_blank", "noopener,noreferrer");
+        if (!opened) {
+            const link = document.createElement("a");
+            link.href = url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+    } catch (error) {
+        console.error("Document view failed", error);
+        alert("Unable to open document: " + (error.code || error.message));
+    }
+};
+
+/* =========================================================
    MORE ITEM DETAILS
 ========================================================= */
 
@@ -3841,6 +3952,19 @@ window.moreItem =
 
             </div>
 
+
+            <section class="item-documents-panel item-documents-view">
+                <h4>Documents — MSDS / TDS / Catalog</h4>
+                <div class="item-documents-list">
+                    ${["MSDS", "TDS", "Catalog"].map(type => {
+                        const file = item.documents?.[type];
+                        return `<div class="item-document-line">
+                            <strong>${type}</strong>
+                            ${file?.path ? `<span>${esc(file.name || type)}</span><button type="button" onclick="window.openItemDocument('${esc(item.id)}','${type}')">View / Download</button>` : `<span>Not attached</span>`}
+                        </div>`;
+                    }).join("")}
+                </div>
+            </section>
 
             <h4>
                 Receiving / Invoice Batches
