@@ -16,6 +16,7 @@ import {
     setDoc,
     addDoc,
     updateDoc,
+    deleteDoc,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
@@ -131,6 +132,90 @@ function daysUntil(value) {
 
 
 /* =========================================================
+   ANDROID FCM DEVICE REGISTRATION
+   Stores a device token only for the currently authenticated user.
+   Push notifications are SENT by a separate trusted Cloud Function,
+   never by the browser.
+========================================================= */
+
+let coreworksFcmToken = "";
+let registeredFcmDevicePath = "";
+let activeFcmRegistration = null;
+
+async function coreworksFcmDeviceId(token) {
+    const data = new TextEncoder().encode(token);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function registerCoreworksFcmToken() {
+    const signedInUser = auth.currentUser;
+    const token = coreworksFcmToken || String(window.CoreworksAndroidFcmToken || "");
+    // Never register when locked, signed out, or outside the native Android app.
+    if (!signedInUser || !appUnlocked || !isNativeAndroidWebView() || !token) return;
+
+    const deviceId = await coreworksFcmDeviceId(token);
+    const path = `users/${signedInUser.uid}/pushDevices/${deviceId}`;
+    if (activeFcmRegistration === path) return;
+    activeFcmRegistration = path;
+
+    try {
+        await setDoc(doc(db, "users", signedInUser.uid, "pushDevices", deviceId), {
+            uid: signedInUser.uid,
+            token,
+            platform: "android",
+            updatedAt: serverTimestamp()
+        });
+        registeredFcmDevicePath = path;
+        console.info("Coreworks: Android push device registered.");
+    } catch (error) {
+        // Missing Firestore rules must not prevent normal inventory use.
+        console.warn("Coreworks: push device registration failed:", error);
+    } finally {
+        activeFcmRegistration = null;
+    }
+}
+
+window.addEventListener("coreworks-fcm-token", event => {
+    const token = event.detail?.token;
+    if (typeof token !== "string" || !token.trim()) return;
+    const previous = coreworksFcmToken;
+    coreworksFcmToken = token.trim();
+    if (previous && previous !== coreworksFcmToken && registeredFcmDevicePath) {
+        // Keep an old token from accumulating when FCM rotates it.
+        const oldPath = registeredFcmDevicePath;
+        registeredFcmDevicePath = "";
+        const parts = oldPath.split("/");
+        deleteDoc(doc(db, ...parts)).catch(error =>
+            console.warn("Coreworks: old push token cleanup failed:", error));
+    }
+    void registerCoreworksFcmToken();
+});
+
+async function unregisterCoreworksFcmToken() {
+    const signedInUser = auth.currentUser;
+    const token = coreworksFcmToken || String(window.CoreworksAndroidFcmToken || "");
+    if (!signedInUser || !token || !isNativeAndroidWebView()) return;
+    try {
+        const id = await coreworksFcmDeviceId(token);
+        await deleteDoc(doc(db, "users", signedInUser.uid, "pushDevices", id));
+        registeredFcmDevicePath = "";
+    } catch (error) {
+        console.warn("Coreworks: could not unregister push device:", error);
+    }
+}
+
+async function coreworksSignOut() {
+    // Best effort: do not block logout if the network is offline.
+    await Promise.race([
+        unregisterCoreworksFcmToken(),
+        new Promise(resolve => setTimeout(resolve, 2500))
+    ]);
+    appUnlocked = false;
+    await signOut(auth);
+}
+
+/* =========================================================
    LOGIN
 ========================================================= */
 
@@ -224,6 +309,7 @@ async function finishAppUnlock(currentUser) {
     $("app").classList.remove("hidden");
     $("user").textContent = currentUser.email;
     applyPermissions();
+    void registerCoreworksFcmToken();
     await refresh();
 }
 
@@ -327,10 +413,7 @@ async function showBiometricGate(currentUser) {
         : setupBiometric(currentUser);
 
     const biometricSignOut = $("biometricSignOut");
-    if (biometricSignOut) biometricSignOut.onclick = () => {
-        appUnlocked = false;
-        return signOut(auth);
-    };
+    if (biometricSignOut) biometricSignOut.onclick = coreworksSignOut;
 
     // On returning users, request device verification automatically.
     // Some browsers may require a user gesture; the Unlock button remains as fallback.
@@ -379,11 +462,7 @@ $("loginForm").onsubmit =
     };
 
 
-$("logout").onclick =
-    () => {
-        appUnlocked = false;
-        return signOut(auth);
-    };
+$("logout").onclick = coreworksSignOut;
 
 
 $("refresh").onclick =
