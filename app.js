@@ -2532,6 +2532,10 @@ $("inForm").onsubmit =
                         :
                         null,
 
+                // Exact stock after THIS receiving transaction (for push notification).
+                stockBalanceAfter:
+                    Number(item.stockQty || 0) + quantity,
+
                 receivedQty:
                     quantity,
 
@@ -2746,6 +2750,10 @@ $("outForm").onsubmit =
                     null,
 
                 pcsPerUnit,
+
+                // Exact stock after THIS issue transaction (for push notification).
+                stockBalanceAfter:
+                    Number(item.stockQty || 0) - quantity,
 
                 totalPcsOut:
                     quantity *
