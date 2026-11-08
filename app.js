@@ -485,6 +485,7 @@ async function refresh() {
 
         dashboard();
 
+        populateItemFilterSuggestions();
         renderItems();
 
         loadSelects();
@@ -1366,6 +1367,58 @@ function getItemStatus(item) {
     };
 }
 
+
+/* =========================================================
+   FILTER DROPDOWN SUGGESTIONS (UI only)
+   Existing input filtering logic remains unchanged.
+========================================================= */
+
+const itemFilterSuggestionFields = {
+    fItemNo: item => item.itemNo,
+    fLocation: item => item.location,
+    fName: item => item.itemName,
+    fDescription: item => item.description,
+    fSpecification: item => item.specification,
+    fUnit: item => item.unitType || item.unit,
+    fStock: item => item.stockQty,
+    fMin: item => item.minimumQty,
+    fSupplier: item => item.supplierName,
+    fBuying: item => item.buyingPrice
+};
+
+function populateItemFilterSuggestions() {
+    Object.entries(itemFilterSuggestionFields).forEach(([filterId, getValue]) => {
+        const list = $(filterId + "Suggestions");
+        if (!list) return;
+        const unique = new Map();
+        const addValue = value => {
+            const v = String(value ?? "").trim();
+            if (!v || unique.has(v.toLocaleLowerCase())) return;
+            unique.set(v.toLocaleLowerCase(), v);
+        };
+
+        items.forEach(item => {
+            const raw = getValue(item);
+            addValue(raw);
+            // Description/Specification: offer individual keywords, too.
+            // Selecting a keyword uses the existing substring filter.
+            if (filterId === "fDescription" || filterId === "fSpecification") {
+                String(raw ?? "").split(/[\s,;/()\[\]]+/).forEach(word => {
+                    if (word.length >= 2) addValue(word);
+                });
+            }
+        });
+        list.replaceChildren();
+        [...unique.values()]
+            .sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: "base"}))
+            .slice(0, 1500)
+            .forEach(value => {
+                const option = document.createElement("option");
+                option.value = value;
+                list.appendChild(option);
+            });
+    });
+}
 
 /* =========================================================
    ITEM FILTERS
